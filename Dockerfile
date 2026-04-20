@@ -1,13 +1,10 @@
 # syntax=docker/dockerfile:1
 
-# ── Stage: runtime ────────────────────────────────────────────────────────────
-FROM python:3.11.9-slim
+FROM ghcr.io/meta-pytorch/openenv-base:latest
 
-# Metadata
 LABEL org.opencontainers.image.title="OpenEnv Clinical Trial Designer"
-LABEL org.opencontainers.image.source="https://github.com/your-org/openenv-clinical-trial"
+LABEL org.opencontainers.image.source="https://github.com/suyashkumar102/openenv-clinical-trialv2"
 
-# Prevent .pyc files and enable unbuffered stdout/stderr
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     HOST=0.0.0.0 \
@@ -15,30 +12,21 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Create a non-root user (while still root)
-RUN addgroup --system appgroup \
- && adduser --system --ingroup appgroup --no-create-home appuser
-
-# Install Python dependencies (cached layer — only re-runs when pyproject.toml changes)
+# Install dependencies
 COPY pyproject.toml ./
-RUN pip install --no-cache-dir --upgrade pip==24.0 \
- && pip install --no-cache-dir --no-build-isolation \
+RUN pip install --no-cache-dir --upgrade pip \
+ && pip install --no-cache-dir \
         fastapi==0.111.0 \
         "uvicorn[standard]==0.29.0" \
         pydantic==2.7.1 \
         pydantic-settings==2.2.1
 
-# Copy application source and install the local package
-COPY environment/ ./environment/
+# Copy source and install local package
+COPY server/ ./server/
 RUN pip install --no-cache-dir --no-deps .
 
-# Drop to non-root user
-USER appuser
-
-EXPOSE 8000
-
-# Health check: GET /ping must respond within 30 s of container start
+# Health check: GET /ping must respond within 30s
 HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${PORT}/ping')"
 
-CMD ["sh", "-c", "uvicorn environment.app:app --host ${HOST} --port ${PORT}"]
+CMD ["sh", "-c", "uvicorn server.app:app --host ${HOST} --port ${PORT}"]

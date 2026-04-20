@@ -15,7 +15,7 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["environment*"]
+include = ["server*"]
 
 [project.optional-dependencies]
 dev = [

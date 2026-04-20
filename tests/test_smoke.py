@@ -2,7 +2,7 @@
 
 from starlette.testclient import TestClient
 
-from environment.app import app
+from server.app import app
 
 client = TestClient(app)
 

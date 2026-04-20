@@ -18,9 +18,9 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
-from environment.config import settings
-from environment.episode_manager import EpisodeManager
-from environment.models import TrialAction, TrialObservation, TrialState
+from server.config import settings
+from server.episode_manager import EpisodeManager
+from server.models import TrialAction, TrialObservation, TrialState
 
 app = FastAPI(title="Clinical Trial Designer Environment")
 
@@ -127,7 +127,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
 if __name__ == "__main__":
     uvicorn.run(
-        "environment.app:app",
+        "server.app:app",
         host=settings.host,
         port=settings.port,
         reload=False,
