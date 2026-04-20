@@ -30,6 +30,10 @@
 | — | `Roopal` | phase_workflow.md: added KubeSRE→clinical mapping table, judge persona scaling per tier, recovery bonus for protocol amendments | `docs/phase_workflow.md` |
 | — | `Roopal` | problem_statement.md: added domain references (ICH E9, DiMasi 2016, Wong 2019), winner precedent column, existing work comparison | `docs/problem_statement.md` |
 | — | `Roopal` | story_arc.md: added action heatmap (VRAM), capability radar (VRAM), component trends (Bio), environment co-evolution narrative (KubeSRE) | `docs/story_arc.md` |
+| — | `Roopal` | **[Push 2] Roopal: reward spec, scenarios, shaping function** | See below |
+| — | `Roopal` | Created reward decomposition spec: 8 per-step components + 7 terminal components + potential-based shaping φ(s) with γ·(φ(s')−φ(s)) | `docs/reward_spec.md` |
+| — | `Roopal` | Created 4 scenario cards with hidden ground-truth values, curriculum scaling tables, programmatic verification functions per scenario | `docs/scenario_cards.md` |
+| — | `Roopal` | Created milestone map: 18 milestones across 3 macro-phases, step budgets per tier, velocity metrics, φ(s) integration | `docs/milestone_map.md` |
 
 ---
 
@@ -38,6 +42,8 @@
 | Branch | Last Push | Status |
 |--------|-----------|--------|
 | `main` | Gap analysis + ROADMAP updates + LOCK statement | Up to date |
+| `Roopal` | Push 2 Roopal tasks complete | All 5 tasks done, pushed to origin |
+| `Suyash` | Not started | Pending: rule engine, noise model, episode logging |
 | `Roopal` | Push 1 Roopal tasks complete | All 6 tasks done, pushed to origin |
 | `Suyash` | Not started | Pending: env skeleton, openenv.yaml, latent state |
 
