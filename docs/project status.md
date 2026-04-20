@@ -47,6 +47,11 @@
 | — | `Roopal` | Created evaluation report template: baseline comparison table, per-scenario breakdown, component trends, curriculum timeline, charts checklist with specs | `docs/evaluation_report_template.md` |
 | — | `Roopal` | Created HF mini-blog draft (G12): 6-section structure (problem → env → reward → results → what learned → try it), publishing checklist | `docs/mini_blog_draft.md` |
 | — | `Roopal` | Created Colab training notebook (G6): 9 cells — install deps, env connection, Unsloth model load, reward function, dataset, GRPO config, training, evaluation, HF Hub upload, reward curve plot | `train_colab.ipynb` |
+| — | `Roopal` | **[Push 5] Roopal: reward tuning, adaptive difficulty spec, dashboard UI** | See below |
+| — | `Roopal` | Improved system prompt with per-action guidance, decision tips, and workflow explanation. Added reward weight tuning guide with diagnostic procedure + decision matrix | `docs/training_runbook.md` |
+| — | `Roopal` | Updated README with expected baseline scores table (random vs scripted vs trained), key pitch contrasts, and updated checklist (G4 + G14) | `README.md` |
+| — | `Roopal` | Created adaptive difficulty spec (G4): mastery detection, 4-step hardening schedule per scenario × axis, weak-spot targeting with FailureAnalyzer, 5 compound challenges at Expert tier, solvability guarantee | `docs/adaptive_difficulty_spec.md` |
+| — | `Roopal` | Built dashboard.html (G14): 6-panel single-page dashboard (episode replay, reward curves, curriculum progression, scenario breakdown, capability radar, action log). Canvas-drawn charts, WebSocket live updates, demo data generator for offline pitch | `dashboard.html` |
 
 ---
 
@@ -56,6 +61,7 @@
 |--------|-----------|--------|
 | `main` | Spec files for Suyash (ARCHITECTURE, reward, scenarios, milestones, phase workflow) | Up to date |
 | `Roopal` | Push 4 Roopal tasks complete | All 5 tasks done |
+| `Roopal` | Push 5 Roopal tasks complete | All 5 tasks done |
 | `Suyash` | Not started | Pending: train.py, eval_compare.py, plot_rewards.py |
 
 ---

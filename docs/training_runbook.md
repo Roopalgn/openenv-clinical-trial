@@ -67,29 +67,66 @@ GRPO_CONFIG = {
 }
 ```
 
-### System Prompt
+### System Prompt (Push 5 — Improved)
+
+> **Rationale:** The original system prompt listed actions without explaining *when* or *why* to use them. The improved version gives the agent a decision framework — phase-by-phase guidance, parameter hints, and a clear success definition. This reduces early-episode random exploration and accelerates Phase I → Phase II transition learning.
 
 ```python
 SYSTEM_PROMPT = """You are a clinical trial designer. You are given a disease scenario 
-and must design a complete Phase I/II clinical trial.
+and must design a complete Phase I/II clinical trial that detects the drug's true effect.
 
-Your goal: design a trial that correctly detects the drug's true effect and identifies 
-the right patient population, while staying within budget and following FDA regulations.
+## YOUR GOAL
+Design a trial where:
+1. The primary analysis achieves statistical significance (p < 0.05)
+2. Statistical power is adequate (≥ 0.80)
+3. The correct patient population is identified
+4. Budget and time constraints are respected
+5. All FDA regulations are followed
 
-You interact with the environment by choosing actions. Each action returns an observation 
-with results or feedback. Available actions include:
+## WORKFLOW (follow this order — skipping phases is penalized)
 
-PHASE I: run_dose_escalation, observe_safety_signal, estimate_effect_size
-PHASE II DESIGN: set_primary_endpoint, set_sample_size, set_inclusion_criteria, 
-    set_exclusion_criteria, set_dosing_schedule, set_control_arm, 
-    set_randomization_ratio, set_blinding
-REGULATORY: submit_to_fda_review, request_protocol_amendment
-MONITORING: run_interim_analysis, modify_sample_size, add_biomarker_stratification
-ANALYSIS: run_primary_analysis
-CONCLUSION: synthesize_conclusion
+### Phase I — Safety & Dose-Finding (do this FIRST)
+- `run_dose_escalation`: Test increasing doses to find the maximum tolerated dose (MTD).
+  Parameters: {"dose_mg": <int>, "cohort_size": 3|6}. Start low (50mg), escalate in steps.
+  Run at least 3 dose levels before concluding Phase I.
+- `observe_safety_signal`: Check adverse events at the current dose.
+  Use after each dose escalation to monitor safety before going higher.
+- `estimate_effect_size`: Get a noisy estimate of the drug's effect from Phase I data.
+  Requires at least 1 dose escalation. This estimate guides your Phase II sample size.
 
-Follow the clinical workflow: Phase I → Phase II Design → FDA Submission → 
-Monitoring → Analysis → Conclusion. Skipping phases is penalized.
+### Phase II — Efficacy Trial Design (based on Phase I findings)
+- `set_primary_endpoint`: Define what the trial measures (e.g., "progression_free_survival").
+- `set_sample_size`: Set N based on estimated effect size and desired power.
+  Use the power formula: larger effect → smaller N needed. Underpowered trials fail.
+- `set_inclusion_criteria`: Define who enters the trial.
+  KEY INSIGHT: If Phase I suggests a subgroup benefits more (e.g., "EGFR+"),
+  restricting to that subgroup dramatically increases power with fewer patients.
+- `set_exclusion_criteria`: Define who is excluded (safety, confounders).
+- `set_dosing_schedule`: Choose dose and frequency based on Phase I MTD finding.
+- `set_control_arm`: Set comparator ("placebo" or "standard_of_care").
+- `set_randomization_ratio`: Set treatment:control ratio (e.g., "1:1" or "2:1").
+- `set_blinding`: Set blinding level ("double_blind" recommended).
+
+### Regulatory
+- `submit_to_fda_review`: Submit protocol for approval. Requires endpoint + sample size set.
+- `request_protocol_amendment`: Fix protocol issues after a failed FDA review. Costs time/budget.
+
+### Monitoring (after FDA approval)
+- `run_interim_analysis`: Check early results. Can stop for futility or reduce sample size.
+- `modify_sample_size`: Adjust N based on interim results (requires interim first).
+- `add_biomarker_stratification`: Analyze by subgroup. Use when you suspect a hidden responder population.
+
+### Analysis & Conclusion
+- `run_primary_analysis`: Run the final statistical test. This determines success/failure.
+- `synthesize_conclusion`: Summarize findings. Include effect estimate, confidence interval,
+  identified subgroups, and mechanism hypothesis.
+
+## DECISION TIPS
+- Phase I data is noisy. Run multiple dose levels, not just one.
+- If the effect size estimate is small, look for subgroups before committing to a large N.
+- Budget is limited. Enriching for responders (smaller N, bigger effect) beats enrolling everyone.
+- Overconfidence is penalized: don't claim high confidence without data to support it.
+- You can amend the protocol if FDA review fails, but it costs time and budget.
 
 Respond with a JSON action: {"action_type": "<action>", "parameters": {...}}"""
 ```
@@ -318,4 +355,91 @@ results/
 - Save every 50 steps: `checkpoints/grpo_clinical_trial/step_050/`, `step_100/`, etc.
 - Keep the best checkpoint by validation reward (manual check after training)
 - Upload final checkpoint to HuggingFace Hub for demo
+
+---
+
+## Reward Weight Tuning Guide (Push 5)
+
+> **Purpose:** After baseline collection, use the diagnostic patterns below to decide whether reward weights need adjustment before the full training run. This saves hours of training on a miscalibrated reward.
+
+### Diagnostic Procedure
+
+After collecting 50 scripted-baseline episodes, run:
+
+```bash
+python -c "
+import csv
+from collections import defaultdict
+
+totals = defaultdict(list)
+with open('results/rewards.csv') as f:
+    for row in csv.DictReader(f):
+        for k, v in row.items():
+            if k.startswith('r_'):
+                totals[k].append(float(v))
+
+print('Component   | Mean    | Std     | Min     | Max')
+print('-' * 55)
+for k in sorted(totals):
+    vals = totals[k]
+    import statistics
+    mean = statistics.mean(vals)
+    std = statistics.stdev(vals) if len(vals) > 1 else 0
+    print(f'{k:12s} | {mean:7.3f} | {std:7.3f} | {min(vals):7.3f} | {max(vals):7.3f}')
+"
+```
+
+### Decision Matrix
+
+| Diagnostic Pattern | Problem | Adjustment |
+|-------------------|---------|------------|
+| `r_info_gain` mean < 0.05, agent skips Phase I | Agent not incentivized to gather data | Increase `w_info_gain` from 1.0 → 1.5 |
+| `r_ordering` mean ≈ 0 with many skips | Phase-order penalty too weak for GRPO | Increase skip penalty from -0.3 → -0.5 per phase |
+| `r_validity` mean > 0.25 for all episodes | Validity is "free reward" — not discriminating | Reduce `w_validity` from 1.0 → 0.6 |
+| `r_terminal_success` std < 1.0 | Terminal reward doesn't separate good/bad | Increase success reward to +7.0 base (from +5.0) |
+| `r_shaping` dominates (>40% of total) | Shaped reward hacking — agent optimizes φ not task | Reduce γ from 0.99 → 0.95, or cap shaping at ±0.5/step |
+| `r_penalty` mean < -0.5 | Penalty overwhelms learning signal | Reduce penalty magnitude or cap at -0.1/step |
+| `r_novelty` mean ≈ 0 after 5 steps | Agent ignores action diversity | Increase first-use bonus from +0.1 → +0.2 |
+| `r_efficiency` near 0 for all episodes | Budget signal too weak | Increase weight or make budget depletion penalty harsher |
+| Total reward variance < 3.0 | GRPO needs high variance for advantages | Increase terminal reward magnitudes (+success, -failure) |
+| Total reward variance > 20.0 | Too noisy — GRPO updates are unstable | Reduce terminal reward magnitudes or add reward normalization |
+
+### Recommended Starting Weights
+
+Based on analysis of winner configurations (KubeSRE, Bio Experiment, VRAM):
+
+```python
+REWARD_WEIGHTS = {
+    # Per-step (relative importance)
+    "w_validity": 0.8,     # Slightly below 1.0 — compliance is baseline behavior
+    "w_ordering": 1.0,     # Phase ordering is a key differentiator 
+    "w_info_gain": 1.2,    # Most important per-step signal — drives data gathering
+    "w_efficiency": 0.6,   # Secondary — important but shouldn't dominate
+    "w_novelty": 0.5,      # Exploration bonus — diminishes over training
+    "w_penalty": 1.0,      # Full weight for penalties
+    
+    # Shaping
+    "gamma": 0.99,         # Discount factor for potential-based shaping
+    "shaping_cap": 0.5,    # Max |r_shaping| per step to prevent shaping dominance
+    
+    # Terminal (absolute magnitudes)
+    "r_success_base": 5.0,          # +5.0 flat for detecting true effect
+    "r_success_efficiency_bonus": 2.0,  # Up to +2.0 for completing quickly
+    "r_calibration_max": 5.0,       # Up to +5.0 for matching ground truth
+    "r_power_max": 2.0,             # +2.0 for power ≥ 0.90
+    "r_fda_bonus": 2.0,             # +2.0 for full FDA compliance
+    "r_failure": -1.0,              # Failure penalty
+    "r_timeout": -2.0,              # Timeout wipes accumulated reward
+    "r_overconfidence": -0.5,       # Per high-confidence wrong claim
+}
+```
+
+### When to Re-Tune During Training
+
+Check reward CSV every ~100 episodes during training. If you see:
+
+- **Plateau lasting >50 episodes:** Likely curriculum is stuck. Check `should_advance()` thresholds.
+- **Reward cliff (sudden drop):** Tier advancement happened but agent can't handle new difficulty. May need intermediate hardening steps (see `adaptive_difficulty_spec.md`).
+- **r_shaping growing while r_terminal flat:** Agent is gaming the shaping function. Reduce γ or cap shaping.
+- **Success rate >90% at current tier for >30 episodes:** Curriculum advancement is too slow. Lower mastery window.
 - Tag the checkpoint with training metadata: `{"episodes": N, "tier_reached": T, "avg_reward": R}`
