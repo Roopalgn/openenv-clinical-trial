@@ -24,6 +24,12 @@
 | — | `Roopal` | Rewrote README with motivation, environment, rewards, curriculum, setup | `README.md` |
 | — | `Roopal` | Rewrote KnowledgeBase.md as progressive textbook (basics → project) | `docs/KnowledgeBase.md` |
 | — | `Roopal` | Updated project status to log all changes | `docs/project status.md` |
+| — | `Roopal` | Enhanced all Push 1 docs with explicit winner-inspired patterns | See below |
+| — | `Roopal` | ARCHITECTURE.md: added TransitionEngine, OutputGenerator, AdversarialDesigner, judge personas, episode logger, JSONL transcripts (from KubeSRE + Bio) | `ARCHITECTURE.md` |
+| — | `Roopal` | evaluation_criteria.md: added action diversity metric (VRAM), steps-to-completion (KubeSRE), component trends (Bio), capability radar chart (VRAM) | `docs/evaluation_criteria.md` |
+| — | `Roopal` | phase_workflow.md: added KubeSRE→clinical mapping table, judge persona scaling per tier, recovery bonus for protocol amendments | `docs/phase_workflow.md` |
+| — | `Roopal` | problem_statement.md: added domain references (ICH E9, DiMasi 2016, Wong 2019), winner precedent column, existing work comparison | `docs/problem_statement.md` |
+| — | `Roopal` | story_arc.md: added action heatmap (VRAM), capability radar (VRAM), component trends (Bio), environment co-evolution narrative (KubeSRE) | `docs/story_arc.md` |
 
 ---
 

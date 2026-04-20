@@ -1,5 +1,7 @@
 # Demo Story Arc: From Blind to FDA-Ready
 
+> **Inspired by:** KubeSRE's "From blind to on-call" narrative (Episode 1: +1.80 → Episode 7: +6.79). Bio Experiment's "hidden biology revealed through experiments." VRAM's "pattern repetition vs real exploration" with visual heatmaps and capability radar. All winners told a failure → learning → success story with specific numbers.
+
 ## The 3-Minute Pitch Structure
 
 ### Hook (15 seconds)
@@ -83,15 +85,44 @@ The trained agent receives `solid_tumor_chemo`:
 
 ## Visual Assets Needed
 
+> **Inspired by:** KubeSRE showed reward curves across 3 training runs. VRAM showed action heatmaps (repetition vs exploration) and capability radar charts. Bio showed trajectory datasets with per-component trends.
+
 1. **Reward curve**: per-episode scatter + rolling average + trend line (from `plot_rewards.py`)
+   - *KubeSRE pattern: show 3 runs with different seeds → proves robustness*
 2. **Before/after episode**: side-by-side terminal output of Episode 1 vs Episode 40
+   - *KubeSRE pattern: Episode 1 blind commands vs Episode 7 systematic debugging*
 3. **Curriculum chart**: bar chart showing tier progression over episodes
+   - *KubeSRE pattern: warmup → beginner → intermediate → advanced → expert progression*
 4. **Architecture diagram**: from `ARCHITECTURE.md`
 5. **Dashboard screenshot**: live episode replay from `dashboard.html`
+   - *Bio pattern: dashboard.html + dashboard.py for live demo*
+6. **Action diversity heatmap** (NEW — from VRAM):
+   - Base model: bright rows on `set_sample_size`, `run_primary_analysis` (repetitive, 2–3 actions dominate)
+   - Trained model: spread across 12–15 of 19 actions (genuine exploration)
+   - *VRAM showed this as proof of learning beyond reward — the agent explores more intelligently*
+7. **Capability radar chart** (NEW — from VRAM):
+   - 6 axes: trial success, phase compliance, FDA pass, action diversity, budget efficiency, subgroup identification
+   - Base model: small polygon (low on all axes)
+   - Trained model: expanded polygon (high on most axes)
+   - *VRAM used this to show "not just scoring higher — exploring more intelligently"*
+8. **Component reward trends** (NEW — from Bio):
+   - 8 subplots showing each reward component over training
+   - Shows *which* skills improve: e.g., `r_ordering` improves first (learns phase sequence), then `r_info_gain` (learns to gather information), then `r_validity` (learns FDA rules)
+   - *Bio pattern: decomposed reward makes it clear which behaviors the agent learned*
 
 ## Key Storytelling Principles (from Winner Analysis)
 
 - **Failure first**: Start with the agent failing badly — makes improvement dramatic
+  - *KubeSRE: Episode 1 reward +1.80 (random kubectl), Episode 4: +6.58 (learned discovery)*
 - **Show the math**: Power calculations, p-values, FDA rules — prove the verification is objective
+  - *Bio: prerequisite rules, ground-truth calibration, budget math*
 - **Environment co-evolution**: If we find bugs through training, that's part of the story (KubeSRE won partly on this)
+  - *KubeSRE's winning insight: "training exposed bugs in the command parser, judge truncation, and health check race conditions. Fixing them made both the environment and agent better."*
+  - *If our simulator's noise model is too easy or too hard, discovering this through training IS the demo*
 - **Numbers, not vibes**: "48% success rate vs 12% baseline" beats "the agent got better"
+  - *KubeSRE: Mean 3.48, Best 6.79, across 7 episodes*
+  - *VRAM: 21% improvement (5.75 vs 4.74 shaped reward)*
+- **Visual proof over text**: Heatmaps, radar charts, and reward curves are more convincing than bullet points
+  - *VRAM won the "visual proof" category with tool usage heatmaps and capability radar*
+- **The "aha moment"**: Identify and highlight the specific episode where the agent does something smart for the first time
+  - *Our version: the first time the agent sets `inclusion_criteria: "EGFR+"` — it discovered the hidden subgroup*

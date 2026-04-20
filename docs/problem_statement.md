@@ -8,47 +8,68 @@ This is a **professional world-modeling task** (Theme #3.1) — the agent intera
 
 ## Why Clinical Trial Design
 
+> **Domain credibility:** Bio Experiment won 2nd place partly because they grounded scenarios in real papers with DOIs and real biological ground truth. We ground our domain in published FDA statistics, ICH guidelines, and real clinical trial failure data.
+
 - **Real professional task**: Clinical trial design is a high-stakes, multi-step professional workflow where mistakes cost billions of dollars and years of time.
+  - Average cost of bringing a drug to market: **$2.6 billion** (DiMasi et al., 2016, *J Health Economics*)
+  - Average development timeline: **10–15 years** (PhRMA, 2021)
+  - Overall clinical trial failure rate: **~90%** (Wong et al., 2019, *Biostatistics*)
+  - Phase II failure rate due to inadequate efficacy: **~57%** (Hwang et al., 2016, *JAMA Internal Medicine*)
 - **Objective verification**: Trial success is determined by math (statistical power, p-values, confidence intervals) and codified rules (FDA ICH E9 guidelines) — not by LLM judgment.
+  - ICH E9: *Statistical Principles for Clinical Trials* (1998) — the international standard for trial design
+  - ICH E9(R1): *Estimands and Sensitivity Analysis in Clinical Trials* (2019) — modern addendum on handling intercurrent events
+  - 21 CFR Part 312: *Investigational New Drug Application* — FDA regulatory framework
 - **Partially observable**: The true drug effect, responder population, and safety profile are hidden. The agent must design experiments (dose escalation, interim analysis) to discover them.
 - **Long-horizon planning**: A full trial spans 55–100 steps across Phase I, Phase II, regulatory, and analysis phases. Early decisions (endpoint choice, sample size) constrain later outcomes.
 - **Progressive difficulty**: Easy scenarios have large effect sizes in homogeneous populations. Hard scenarios have hidden responder subgroups, misleading Phase I signals, and tiny effects masked by placebo response.
 
+### No Existing RL Environment Covers This
+
+Unlike K8s debugging (KubeSRE) or bioinformatics (Bio Experiment), there is **no existing OpenEnv environment for clinical trial design**. The closest academic work:
+- **TrialGPT** (Jin et al., 2023): uses LLMs for patient-trial matching, but is a classification task, not RL.
+- **Clinical trial optimization** (Berry et al., 2011): Bayesian adaptive designs, but formulated as statistical optimization, not agent interaction.
+- **Our contribution**: First RL environment where an LLM learns the full trial design workflow through interaction with a hidden-state simulator.
+
 ## Alignment to Judging Criteria
+
+> **Strategy insight:** KubeSRE won 40% innovation by being the first RL environment for real K8s debugging. Bio Experiment won 30% storytelling with "hidden biology revealed through systematic experiments." We target both.
 
 ### Environment Innovation (40%)
 
-| What Judges Want | What We Deliver |
-|---|---|
-| Novel, creative, challenging environment | Clinical trial design is unexplored in RL — no existing OpenEnv environment covers it |
-| Meaningfully tests agent behavior | Agent must reason about hidden biology, statistical power, and regulatory constraints simultaneously |
-| Real interaction with tools/APIs | Real scipy.stats power calculations, real FDA rule engine, real trial simulation — not mocked |
-| Partially observable world | Hidden ground truth: true effect size, responder subgroup, safety profile, dose-response curve |
-| Consistent internal state | TrialLatentState maintains hidden truth; TrialState tracks agent's decisions and resource usage |
+| What Judges Want | What We Deliver | Winner Precedent |
+|---|---|---|
+| Novel, creative, challenging environment | Clinical trial design is unexplored in RL — no existing OpenEnv environment covers it | KubeSRE: first RL for real K8s debugging |
+| Meaningfully tests agent behavior | Agent must reason about hidden biology, statistical power, and regulatory constraints simultaneously | Bio: hidden DE genes + realistic noise |
+| Real interaction with tools/APIs | Real scipy.stats power calculations, real FDA rule engine, real trial simulation — not mocked | KubeSRE: real kubectl against live cluster |
+| Partially observable world | Hidden ground truth: true effect size, responder subgroup, safety profile, dose-response curve | Bio: POMDP with hidden ground truth |
+| Consistent internal state | TrialLatentState maintains hidden truth; TrialState tracks agent's decisions and resource usage | Bio: TransitionEngine + OutputGenerator |
+| Self-improving/adaptive | AdversarialDesigner at expert tier targets weak spots; curriculum co-evolves with agent | KubeSRE: Claude designs targeted incidents |
 
 ### Storytelling (30%)
 
-| What Judges Want | What We Deliver |
-|---|---|
-| Clear problem explanation | "Can a small LLM learn to design a clinical trial from scratch?" |
-| Engaging demo | Story arc: failure → learning → success with before/after episode comparison |
-| Easy to follow | 3-act structure: blind start → discovers Phase I workflow → masters adaptive design |
+| What Judges Want | What We Deliver | Winner Precedent |
+|---|---|---|
+| Clear problem explanation | "Can a small LLM learn to design a clinical trial from scratch?" | KubeSRE: "From blind to on-call" |
+| Engaging demo | Story arc: failure → learning → success with before/after episode comparison | KubeSRE: Episode 1 (-2.0) → Episode 7 (+6.79) |
+| Easy to follow | 3-act structure: blind start → discovers Phase I workflow → masters adaptive design | VRAM: pattern repetition vs real exploration |
 
 ### Showing Improvement in Rewards (20%)
 
-| What Judges Want | What We Deliver |
-|---|---|
-| Observable training progress | Decomposed reward with 8 components — each independently trackable |
-| Reward curves and metrics | plot_rewards.py generates per-episode curves with rolling average and trend |
-| Before/after behavior | eval_compare.py runs base vs trained model side-by-side |
+| What Judges Want | What We Deliver | Winner Precedent |
+|---|---|---|
+| Observable training progress | Decomposed reward with 8 components — each independently trackable | Bio: 6-component decomposed reward |
+| Reward curves and metrics | plot_rewards.py generates per-episode curves with rolling average and trend | KubeSRE: reward curves across 3 training runs |
+| Before/after behavior | eval_compare.py runs base vs trained model side-by-side; capability radar chart | VRAM: capability profile expansion radar |
+| Multiple metric types | Success rate, action diversity heatmap, phase compliance, FDA pass rate | VRAM: tool diversity, reward, loss dashboard |
 
 ### Reward and Training Script/Pipeline Setup (10%)
 
-| What Judges Want | What We Deliver |
-|---|---|
-| Coherent reward logic | Decomposed: r_validity + r_ordering + r_info_gain + r_efficiency + r_novelty + r_penalty + r_terminal |
-| Meaningful improvement in inference | GRPO with TRL, report success rate improvement and reward trend |
-| Training pipeline | train.py (GRPO + LoRA + vLLM colocate) + train_colab.ipynb (Colab notebook) |
+| What Judges Want | What We Deliver | Winner Precedent |
+|---|---|---|
+| Coherent reward logic | Decomposed: r_validity + r_ordering + r_info_gain + r_efficiency + r_novelty + r_penalty + r_terminal | Bio: same decomposition pattern |
+| Meaningful improvement in inference | GRPO with TRL, report success rate improvement and reward trend | KubeSRE: +1.80 → +6.79 |
+| Training pipeline | train.py (GRPO + LoRA + vLLM colocate) + train_colab.ipynb (Colab notebook) | All winners: complete pipeline |
+| Reproducibility | Seeded NoiseModel, episode transcripts JSONL, documented hyperparams | Bio: seeded numpy.Generator |
 
 ## Objectives
 
@@ -61,6 +82,8 @@ This is a **professional world-modeling task** (Theme #3.1) — the agent intera
 7. Tell a compelling story: "From blind guessing to FDA-ready trial design."
 
 ## Success Metrics
+
+> **Inspired by:** KubeSRE's concrete results (Episode 1: +1.80, Episode 7: +6.79, Mean: 3.48). Bio's trajectory datasets. VRAM's shaped reward improvement (5.75 vs 4.74 = 21%). Setting measurable targets with specific verification methods.
 
 | Metric | Target | Verification Method |
 |---|---|---|
