@@ -8,7 +8,7 @@ instances with placeholder/default values. Logic will be wired in later pushes.
 
 from __future__ import annotations
 
-from server.models import (
+from models import (
     RewardBreakdown,
     TrialAction,
     TrialLatentState,

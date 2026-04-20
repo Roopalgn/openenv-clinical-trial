@@ -18,9 +18,9 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
+from models import TrialAction, TrialObservation, TrialState
 from server.config import settings
 from server.episode_manager import EpisodeManager
-from server.models import TrialAction, TrialObservation, TrialState
 
 app = FastAPI(title="Clinical Trial Designer Environment")
 
