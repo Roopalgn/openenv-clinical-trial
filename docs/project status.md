@@ -42,6 +42,11 @@
 | — | `Roopal` | Created dashboard metrics format: 5 panels (replay, reward curves, curriculum, scenarios, radar), CSV/JSONL schemas, data flow diagram | `docs/dashboard_metrics.md` |
 | — | `Roopal` | Created multi-layer verification spec (G2): L1 programmatic ground-truth, L2 rule-engine constraints, L3 optional LLM judge, conflict resolution matrix | `docs/verification_spec.md` |
 | — | `Roopal` | Enhanced phase_workflow.md (G13): added 10×10 transition matrix, tier penalty multipliers, phase step budgets, expanded _detect_phase() with context-dependent patterns, compute_ordering_reward(), warmup hint system | `docs/phase_workflow.md` |
+| — | `Roopal` | **[Push 4] Roopal: training runbook, Colab notebook, mini-blog draft** | See below |
+| — | `Roopal` | Created training runbook: GRPO hyperparams, system prompt, step-by-step onsite procedure, expected timeline, troubleshooting table, checkpoint strategy | `docs/training_runbook.md` |
+| — | `Roopal` | Created evaluation report template: baseline comparison table, per-scenario breakdown, component trends, curriculum timeline, charts checklist with specs | `docs/evaluation_report_template.md` |
+| — | `Roopal` | Created HF mini-blog draft (G12): 6-section structure (problem → env → reward → results → what learned → try it), publishing checklist | `docs/mini_blog_draft.md` |
+| — | `Roopal` | Created Colab training notebook (G6): 9 cells — install deps, env connection, Unsloth model load, reward function, dataset, GRPO config, training, evaluation, HF Hub upload, reward curve plot | `train_colab.ipynb` |
 
 ---
 
@@ -50,8 +55,8 @@
 | Branch | Last Push | Status |
 |--------|-----------|--------|
 | `main` | Spec files for Suyash (ARCHITECTURE, reward, scenarios, milestones, phase workflow) | Up to date |
-| `Roopal` | Push 3 Roopal tasks complete | All 5 tasks done |
-| `Suyash` | Not started | Pending: curriculum controller, judge, phase detection |
+| `Roopal` | Push 4 Roopal tasks complete | All 5 tasks done |
+| `Suyash` | Not started | Pending: train.py, eval_compare.py, plot_rewards.py |
 
 ---
 
