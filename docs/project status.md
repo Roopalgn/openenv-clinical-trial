@@ -34,6 +34,14 @@
 | — | `Roopal` | Created reward decomposition spec: 8 per-step components + 7 terminal components + potential-based shaping φ(s) with γ·(φ(s')−φ(s)) | `docs/reward_spec.md` |
 | — | `Roopal` | Created 4 scenario cards with hidden ground-truth values, curriculum scaling tables, programmatic verification functions per scenario | `docs/scenario_cards.md` |
 | — | `Roopal` | Created milestone map: 18 milestones across 3 macro-phases, step budgets per tier, velocity metrics, φ(s) integration | `docs/milestone_map.md` |
+| — | `main` | Cherry-picked 5 spec/contract files to main for Suyash | `ARCHITECTURE.md`, `docs/reward_spec.md`, `docs/scenario_cards.md`, `docs/milestone_map.md`, `docs/phase_workflow.md` |
+| — | `Roopal` | Rebased onto updated main, force-pushed | All files |
+| — | `Roopal` | **[Push 3] Roopal: curriculum policy, verification spec, phase scoring** | See below |
+| — | `Roopal` | Created curriculum progression policy: 5 tiers, per-scenario mastery tracking, weak-spot targeting (70/30), fast-track advancement, noise scaling table | `docs/curriculum_policy.md` |
+| — | `Roopal` | Created benchmark protocol: random + scripted baselines, execution commands, output JSON schema, pitch integration table | `docs/benchmark_protocol.md` |
+| — | `Roopal` | Created dashboard metrics format: 5 panels (replay, reward curves, curriculum, scenarios, radar), CSV/JSONL schemas, data flow diagram | `docs/dashboard_metrics.md` |
+| — | `Roopal` | Created multi-layer verification spec (G2): L1 programmatic ground-truth, L2 rule-engine constraints, L3 optional LLM judge, conflict resolution matrix | `docs/verification_spec.md` |
+| — | `Roopal` | Enhanced phase_workflow.md (G13): added 10×10 transition matrix, tier penalty multipliers, phase step budgets, expanded _detect_phase() with context-dependent patterns, compute_ordering_reward(), warmup hint system | `docs/phase_workflow.md` |
 
 ---
 
@@ -41,11 +49,9 @@
 
 | Branch | Last Push | Status |
 |--------|-----------|--------|
-| `main` | Gap analysis + ROADMAP updates + LOCK statement | Up to date |
-| `Roopal` | Push 2 Roopal tasks complete | All 5 tasks done, pushed to origin |
-| `Suyash` | Not started | Pending: rule engine, noise model, episode logging |
-| `Roopal` | Push 1 Roopal tasks complete | All 6 tasks done, pushed to origin |
-| `Suyash` | Not started | Pending: env skeleton, openenv.yaml, latent state |
+| `main` | Spec files for Suyash (ARCHITECTURE, reward, scenarios, milestones, phase workflow) | Up to date |
+| `Roopal` | Push 3 Roopal tasks complete | All 5 tasks done |
+| `Suyash` | Not started | Pending: curriculum controller, judge, phase detection |
 
 ---
 
