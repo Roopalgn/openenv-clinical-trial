@@ -1,12 +1,48 @@
 # Project Status
 
-## Current Snapshot (2026-04-20)
+> **Convention:** Every change to this project is logged here with date, branch, and description. Update this file in every commit.
 
-- Team roadmap created in `docs/ROADMAP.md`.
-- Root project guide created in `README.md`.
-- Formatting improvements applied to `docs/comparison.md`.
-- Formatting improvements applied to `docs/hack_info.md`.
-- Formatting improvements applied to `docs/KnowledgeBase.md`.
+---
+
+## Change Log
+
+### 2026-04-20
+
+| Time | Branch | Change | Files |
+|------|--------|--------|-------|
+| — | `main` | Created team roadmap | `docs/ROADMAP.md` |
+| — | `main` | Created root project guide | `README.md` |
+| — | `main` | Formatting improvements | `docs/comparison.md`, `docs/hack_info.md`, `docs/KnowledgeBase.md` |
+| — | `main` | Added Section 0 gap analysis (15 gaps G1–G15), gap fix tasks per push, PR names, pre-merge checklist (21 items) | `docs/ROADMAP.md` |
+| — | `main` | Added LOCK statement to Push 1 joint gate | `docs/ROADMAP.md` |
+| — | `Roopal` | **[Push 1] Roopal: scaffold docs, architecture, phase workflow** | See below |
+| — | `Roopal` | Created problem statement with judging alignment | `docs/problem_statement.md` |
+| — | `Roopal` | Created evaluation criteria and acceptance metrics | `docs/evaluation_criteria.md` |
+| — | `Roopal` | Created demo story arc (3-min pitch, 4 acts) | `docs/story_arc.md` |
+| — | `Roopal` | Created phase-aware workflow with bonus/penalty rules | `docs/phase_workflow.md` |
+| — | `Roopal` | Created ARCHITECTURE.md with system diagram and data models | `ARCHITECTURE.md` |
+| — | `Roopal` | Rewrote README with motivation, environment, rewards, curriculum, setup | `README.md` |
+| — | `Roopal` | Rewrote KnowledgeBase.md as progressive textbook (basics → project) | `docs/KnowledgeBase.md` |
+| — | `Roopal` | Updated project status to log all changes | `docs/project status.md` |
+
+---
+
+## Current Branch Status
+
+| Branch | Last Push | Status |
+|--------|-----------|--------|
+| `main` | Gap analysis + ROADMAP updates + LOCK statement | Up to date |
+| `Roopal` | Push 1 Roopal tasks complete | All 6 tasks done, pushed to origin |
+| `Suyash` | Not started | Pending: env skeleton, openenv.yaml, latent state |
+
+---
+
+## Compute Timeline
+
+- **Now → April 24:** Build environment, reward logic, curriculum, rule engine, simulator, OpenEnv server, docs, dashboard. No GPU needed.
+- **April 25–26 onsite:** Post-training with HuggingFace compute credits. Run GRPO training, generate reward curves, before/after episodes, baseline scores for pitch.
+
+---
 
 ## Next Milestones Before Merge to Main
 
