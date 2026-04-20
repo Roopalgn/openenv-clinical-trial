@@ -13,11 +13,14 @@
 ## 2. Collaboration Model (No Interference Workflow)
 
 - Branch strategy:
-  - Roopal: `feature/roopal-<push-number>-<topic>`
-  - Suyash: `feature/suyash-<push-number>-<topic>`
+  - Roopal: one active long-lived branch, e.g. `feature/roopal-core`
+  - Suyash: one active long-lived branch, e.g. `feature/suyash-core`
+  - Keep push milestones inside PRs (labels/titles), not by creating a new branch per push.
 - Merge strategy:
   - Both open PRs to `develop` first.
   - One integration PR from `develop` to `main` only after full checklist pass.
+  - For each milestone (`Push 1` to `Push 6`), open a focused PR from each active branch into `develop`.
+  - Use PR titles prefixed with milestone tags, e.g. `[Push 1] ...`, `[Push 2] ...`.
 - File ownership by default:
   - Roopal owns docs/storyline/reward policy/training narrative files.
   - Suyash owns environment engine/simulator/rule-engine/container wiring.
