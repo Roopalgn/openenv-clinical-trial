@@ -52,6 +52,12 @@
 | — | `Roopal` | Updated README with expected baseline scores table (random vs scripted vs trained), key pitch contrasts, and updated checklist (G4 + G14) | `README.md` |
 | — | `Roopal` | Created adaptive difficulty spec (G4): mastery detection, 4-step hardening schedule per scenario × axis, weak-spot targeting with FailureAnalyzer, 5 compound challenges at Expert tier, solvability guarantee | `docs/adaptive_difficulty_spec.md` |
 | — | `Roopal` | Built dashboard.html (G14): 6-panel single-page dashboard (episode replay, reward curves, curriculum progression, scenario breakdown, capability radar, action log). Canvas-drawn charts, WebSocket live updates, demo data generator for offline pitch | `dashboard.html` |
+| — | `Roopal` | **[Push 6] Roopal: storytelling, mini-blog, final docs** | See below |
+| — | `Roopal` | Created judge-facing pitch notes: timing breakdown aligned to 40/30/20/10 scoring weights, talking points per axis, top-10 Q&A prep, demo flow, pitch don'ts | `docs/pitch_notes.md` |
+| — | `Roopal` | Created storytelling assets: 3 scripted episodes (failure/breakthrough/mastery), side-by-side comparison card, "aha moment" highlight, narrative arc summary | `docs/storytelling_assets.md` |
+| — | `Roopal` | Finalized mini-blog (G12): tightened to ~600 words, publish-ready format with clear placeholders for post-training data, streamlined sections | `docs/mini_blog_draft.md` |
+| — | `Roopal` | Finalized ARCHITECTURE.md (G10): H100 memory budget, hardware requirements table, complete system diagram (all components from Push 1-5 reflected), checkpoint upload instructions, post-training results template | `ARCHITECTURE.md` |
+| — | `Roopal` | Proofread README: updated documentation links (all 18 docs listed), fixed reward weights to match tuned values, added Live Dashboard section, updated Team section | `README.md` |
 
 ---
 
@@ -62,6 +68,7 @@
 | `main` | Spec files for Suyash (ARCHITECTURE, reward, scenarios, milestones, phase workflow) | Up to date |
 | `Roopal` | Push 4 Roopal tasks complete | All 5 tasks done |
 | `Roopal` | Push 5 Roopal tasks complete | All 5 tasks done |
+| `Roopal` | Push 6 Roopal tasks complete | All 5 tasks done |
 | `Suyash` | Not started | Pending: train.py, eval_compare.py, plot_rewards.py |
 
 ---

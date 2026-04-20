@@ -295,10 +295,200 @@ port: 8000
 
 ## Training Setup (H100)
 
-```bash
-# Terminal 1: Environment server
-uvicorn server.app:app --host 0.0.0.0 --port 8000
+### Hardware Requirements
 
-# Terminal 2: GRPO training
-python train.py --vllm-mode colocate --num-generations 8 --max-steps 50
+| Component | Spec | Purpose |
+|-----------|------|---------|
+| GPU | 1× NVIDIA H100 80GB | Model + vLLM colocate |
+| RAM | ≥ 64GB | Episode buffers, curriculum state |
+| SSD | ≥ 100GB | Checkpoints (every 50 steps × ~15GB) |
+| Network | Low-latency to env server | Docker on same machine preferred |
+
+### Environment + Training on Same Machine
+
+```bash
+# Terminal 1: Environment server (CPU-only, low resource)
+docker compose up -d
+curl http://localhost:8000/ping  # Verify: {"status": "ok"}
+
+# Terminal 2: GRPO training (GPU — uses ~70% VRAM for vLLM, 30% for training)
+python train.py \
+    --model unsloth/Qwen2.5-7B-bnb-4bit \
+    --env-url http://localhost:8000 \
+    --lora-r 16 --lora-alpha 32 \
+    --num-generations 8 \
+    --max-steps 500 \
+    --lr 5e-6 \
+    --output-dir checkpoints/grpo_clinical_trial \
+    --reward-csv results/rewards.csv \
+    --seed 42
 ```
+
+### H100 Memory Budget
+
+```
+Total VRAM: 80 GB
+├── vLLM inference engine (colocate): ~50 GB (7B model BF16 + KV cache for 8 sequences)
+├── LoRA training parameters:         ~2 GB (rank 16, all linear layers)
+├── Optimizer states (AdamW):          ~4 GB
+├── Gradient accumulation buffers:     ~4 GB (grad_accum=4)
+└── Headroom:                         ~20 GB
+```
+
+If OOM occurs: reduce `vllm_gpu_utilization` to 0.5 or use 4-bit quantized inference model.
+
+### Checkpoint → HuggingFace Hub
+
+```bash
+# After training completes
+python -c "
+from huggingface_hub import HfApi
+api = HfApi()
+api.upload_folder(
+    folder_path='checkpoints/grpo_clinical_trial',
+    repo_id='Roopalgn/clinical-trial-designer-grpo',
+    repo_type='model',
+)
+"
+```
+
+---
+
+## Complete System Diagram (All Implemented Components)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        TRAINING LOOP (H100)                                  │
+│                                                                              │
+│  ┌─────────────────────┐        ┌──────────────────────────────────────┐    │
+│  │  GRPOTrainer (TRL)  │        │  OpenEnv Server :8000 (Docker)       │    │
+│  │  ├── Qwen2.5-7B     │◄──────►│  ├── /reset  → CurriculumController│    │
+│  │  │   + LoRA (r=16)  │  HTTP  │  │             → NoiseModel          │    │
+│  │  ├── vLLM colocate  │        │  │             → TrialLatentState     │    │
+│  │  ├── 8 rollouts     │        │  ├── /step   → RuleEngine            │    │
+│  │  ├── AdamW (5e-6)   │        │  │             → TransitionEngine     │    │
+│  │  └── reward_fn()────│────────│──│             → OutputGenerator      │    │
+│  └─────────────────────┘        │  │             → RewardComputer       │    │
+│                                  │  │             → PhaseDetector        │    │
+│  ┌─────────────────────┐        │  │             → EpisodeLogger        │    │
+│  │  Results / Logs      │        │  ├── /state  → TrialState            │    │
+│  │  ├── rewards.csv     │        │  ├── /schema → ActionSpace           │    │
+│  │  ├── curriculum.jsonl│        │  ├── /ws     → Live step updates     │    │
+│  │  ├── transcripts/    │        │  ├── /ping   → Health check          │    │
+│  │  │   └── *.jsonl     │        │  └── /dashboard → dashboard.html     │    │
+│  │  └── checkpoints/    │        └──────────────────────────────────────┘    │
+│  │      └── step_NNN/   │                                                    │
+│  └─────────────────────┘                                                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      ENVIRONMENT INTERNALS                                    │
+│                                                                              │
+│  reset() ─────────────────────────────────────────────────────►              │
+│  │                                                                           │
+│  │  1. CurriculumController.get_next_scenario()                             │
+│  │     ├── Per-scenario mastery tracking (sliding window)                    │
+│  │     ├── Weak-spot targeting (70/30 split)                                │
+│  │     ├── Fast-track advancement (≥90% in 5 → skip min_episodes)          │
+│  │     └── Tier: warmup → beginner → intermediate → advanced → expert       │
+│  │                                                                           │
+│  │  2. AdversarialDesigner (expert tier only)                               │
+│  │     ├── FailureAnalyzer.get_weak_spots()                                 │
+│  │     ├── Parameter hardening (4 steps per scenario)                        │
+│  │     ├── Compound challenges (needle_in_haystack, budget_crunch, ...)     │
+│  │     └── Solvability guarantee (power check + budget check)               │
+│  │                                                                           │
+│  │  3. NoiseModel.apply_domain_randomization()                              │
+│  │     ├── Budget ±30%, time ±20%, dropout ±15%                             │
+│  │     ├── Seeded numpy.Generator (reproducible)                            │
+│  │     └── Noise scaling by tier (±10% warmup → ±50% expert)               │
+│  │                                                                           │
+│  │  4. TrialLatentState created (hidden from agent)                          │
+│  │     ├── true_effect_size, true_responder_population                      │
+│  │     ├── true_dose_response, true_mechanism                               │
+│  │     └── placebo_response_rate, dropout_rate, site_variability            │
+│  │                                                                           │
+│  step(action) ────────────────────────────────────────────────►              │
+│  │                                                                           │
+│  │  1. RuleEngine.check(action, state)                                       │
+│  │     ├── Hard prerequisites (block action if failed)                       │
+│  │     └── FDA ICH E9 compliance (6 codified rules)                         │
+│  │                                                                           │
+│  │  2. TransitionEngine.apply(action, latent_state)                          │
+│  │     ├── Enrolls patients, spends budget, advances time                   │
+│  │     ├── Runs statistical tests (scipy.stats)                             │
+│  │     └── Updates internal Phase I/II state                                │
+│  │                                                                           │
+│  │  3. OutputGenerator.generate(latent_state)                                │
+│  │     ├── Conditions observation on hidden state                           │
+│  │     ├── Injects measurement noise via NoiseModel                         │
+│  │     └── Agent sees ONLY this noisy output                                │
+│  │                                                                           │
+│  │  4. PhaseDetector.detect(action, history)                                 │
+│  │     └── Classifies into 10 workflow phases                               │
+│  │                                                                           │
+│  │  5. RewardComputer.compute(action, state, latent_state)                   │
+│  │     ├── 8 per-step components (validity, ordering, info_gain, ...)       │
+│  │     ├── Potential-based shaping: γ·(φ(s') − φ(s))                       │
+│  │     ├── Judge persona scaling (junior → principal)                       │
+│  │     └── If done: 7 terminal components (success, calibration, power, ...)│
+│  │                                                                           │
+│  │  6. EpisodeLogger.log_step(...)                                           │
+│  │     ├── JSONL: action, observation, reward breakdown, phase, latent       │
+│  │     ├── CSV: per-episode reward totals                                   │
+│  │     └── WebSocket: push step to dashboard.html                           │
+│  │                                                                           │
+│  │  7. TrialJudge (multi-layer verification)                                 │
+│  │     ├── L1: Programmatic ground-truth (authoritative)                    │
+│  │     ├── L2: Rule engine soft constraints                                  │
+│  │     └── L3: Optional LLM judge (informational only)                      │
+│  │                                                                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      EVALUATION & PITCH ASSETS                                │
+│                                                                              │
+│  eval_compare.py ──► Random vs Scripted vs Trained comparison table          │
+│  plot_rewards.py ──► Reward scatter + rolling avg + tier markers PNG         │
+│  dashboard.html  ──► 6-panel live/demo dashboard (embeddable in HF Space)    │
+│  train_colab.ipynb ─► Minimal Colab notebook (judging minimum requirement)   │
+│  mini_blog_draft.md ► HuggingFace blog post (judging minimum requirement)    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Post-Training Results
+
+> **Section to be filled onsite April 25–26 after GRPO training completes.**
+
+### Training Configuration (Actual)
+
+| Parameter | Value |
+|-----------|-------|
+| Model | `unsloth/Qwen2.5-7B-bnb-4bit` |
+| LoRA | rank 16, alpha 32, target all linear |
+| GRPO generations | 8 |
+| Max training steps | 500 |
+| Learning rate | 5e-6 |
+| vLLM GPU utilization | 0.7 |
+| Environment | Docker on same H100 machine |
+| Seed | 42 |
+
+### Results Summary
+
+| Metric | Value |
+|--------|-------|
+| Total episodes completed | [fill] |
+| Final curriculum tier reached | [fill] |
+| Best single episode reward | [fill] |
+| Final rolling avg reward (window=20) | [fill] |
+| Training wall-clock time | [fill] |
+| Checkpoints saved | [fill] |
+
+### Key Observations
+
+- [Fill after training: what behaviors emerged, what the agent learned, any bugs discovered]
+- [Fill: curriculum progression timeline — when did each tier advance?]
+- [Fill: which reward components improved fastest?]

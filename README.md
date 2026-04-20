@@ -62,10 +62,10 @@ The agent has 19 discrete action types across 5 categories:
 
 | Key | What It Measures | Weight | Verification |
 |---|---|---|---|
-| `r_validity` | FDA rule compliance | 0.3 | Rule engine |
-| `r_ordering` | Correct phase workflow | 0.2 | Phase detection heuristic |
-| `r_info_gain` | Information gained from experiments | 0.4 | Bayesian update quality |
-| `r_efficiency` | Budget and time efficiency | 0.3 | Math |
+| `r_validity` | FDA rule compliance | 0.8 | Rule engine |
+| `r_ordering` | Correct phase workflow | 1.0 | Phase detection heuristic |
+| `r_info_gain` | Information gained from experiments | 1.2 | Bayesian update quality |
+| `r_efficiency` | Budget and time efficiency | 0.6 | Math |
 | `r_novelty` | Exploring new action types | +0.1 | Action history check |
 | `r_penalty` | Soft constraint violations | -0.15/each | Rule engine |
 | `r_terminal_success` | Trial detects true effect | +5.0 to +8.0 | Simulation math |
@@ -141,20 +141,54 @@ python plot_rewards.py
 
 ## Documentation
 
+**Design & Specs:**
+- [Architecture & System Diagram](ARCHITECTURE.md)
 - [Problem Statement & Judging Alignment](docs/problem_statement.md)
-- [Evaluation Criteria & Metrics](docs/evaluation_criteria.md)
-- [Architecture](ARCHITECTURE.md)
-- [Demo Story Arc](docs/story_arc.md)
+- [Reward Decomposition Spec](docs/reward_spec.md)
+- [Scenario Cards (4 scenarios with ground truth)](docs/scenario_cards.md)
 - [Phase Workflow & Scoring](docs/phase_workflow.md)
+- [Curriculum Progression Policy](docs/curriculum_policy.md)
+- [Adaptive Difficulty (G4)](docs/adaptive_difficulty_spec.md)
+- [Multi-Layer Verification Spec](docs/verification_spec.md)
+
+**Training & Evaluation:**
+- [Training Runbook (GRPO config + procedure)](docs/training_runbook.md)
+- [Evaluation Report Template](docs/evaluation_report_template.md)
+- [Benchmark Protocol (baselines)](docs/benchmark_protocol.md)
+- [Dashboard Metrics Format](docs/dashboard_metrics.md)
+
+**Storytelling & Pitch:**
+- [Demo Story Arc (3-min pitch)](docs/story_arc.md)
+- [Pitch Notes (judge-aligned)](docs/pitch_notes.md)
+- [Storytelling Assets (before/after episodes)](docs/storytelling_assets.md)
+- [HF Mini-Blog Draft](docs/mini_blog_draft.md)
+- [Evaluation Criteria & Metrics](docs/evaluation_criteria.md)
+
+**Reference:**
 - [Detailed Roadmap](docs/ROADMAP.md)
 - [Winner Comparison & Intelligence](docs/comparison.md)
 - [Knowledge Base](docs/KnowledgeBase.md)
+- [Milestone Map](docs/milestone_map.md)
 
-## Team Workflow
+## Live Dashboard
 
-- Roadmap and push split: see `docs/ROADMAP.md`.
-- Naming contract and non-rename list: see `docs/ROADMAP.md`.
-- Merge to `main` only after both teammates approve checklist pass.
+Open `dashboard.html` in a browser for a 6-panel demo dashboard with simulated training data:
+- Episode replay with phase-colored timeline
+- Reward curves with rolling average and tier markers
+- Curriculum progression bar
+- Per-scenario success breakdown
+- Agent capability radar (trained vs baseline)
+- Action log
+
+Connects to the environment server's WebSocket for live updates during training.
+
+## Team
+
+- **Roopal Guha Neogi** — Environment design, reward engineering, docs, storytelling
+- **Suyash Kumar** — Environment implementation, training pipeline, evaluation scripts
+
+Roadmap and push split: see `docs/ROADMAP.md`.
+Merge to `main` only after both teammates approve checklist pass.
 
 ## Expected Baseline Scores
 
