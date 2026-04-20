@@ -13,27 +13,19 @@ H100 (all-in-one)                              Trial Simulator
 │  ├─ Reward Computer                │          │  dropout_rate        │
 │  ├─ Curriculum Controller          │          └──────────────────────┘
 │  ├─ Phase Detector                 │
-│  ├─ TransitionEngine               │          Verification Layers
-│  ├─ OutputGenerator                │          ┌──────────────────────┐
-│  ├─ NoiseModel (domain random.)    │          │ 1. Power ≥ 0.80?    │
-│  ├─ AdversarialDesigner (expert+)  │          │ 2. FDA rules pass?   │
-│  └─ TrialJudge (multi-layer)      │ ────────►│ 3. Trial sim p<0.05? │
-│       ├─ Programmatic (power,      │          │ 4. Budget under?     │
-│       │   p-value, FDA rules)      │          │ 5. Calibration match?│
-│       └─ Persona-scaled LLM judge  │          └──────────────────────┘
-│           ├─ Junior  (diff < 0.4)  │
-│           ├─ Senior  (0.4–0.7)    │          Episode Logging
-│           └─ Principal (> 0.7)     │          ┌──────────────────────┐
-│                                    │          │ episode_transcripts/ │
-│  GRPO Trainer (TRL 0.29.0)         │ ────────►│  *.jsonl (per-step)  │
-│  ├─ Agent model + LoRA (BF16)      │          │  reward_log.csv      │
-│  ├─ vLLM colocate (inference)      │          │  curriculum_log.csv  │
-│  └─ 8 rollouts × grad_accum=8     │          └──────────────────────┘
+│  ├─ NoiseModel (domain random.)    │          Verification Layers
+│  └─ TrialJudge (multi-layer)      │          ┌──────────────────────┐
+│       ├─ Programmatic (power,      │          │ 1. Power ≥ 0.80?    │
+│       │   p-value, FDA rules)      │ ────────►│ 2. FDA rules pass?   │
+│       └─ Optional LLM (workflow)   │          │ 3. Trial sim p<0.05? │
+│                                    │          │ 4. Budget under?     │
+│  GRPO Trainer (TRL 0.29.0)         │          └──────────────────────┘
+│  ├─ Agent model + LoRA (BF16)      │
+│  ├─ vLLM colocate (inference)      │
+│  └─ 8 rollouts × grad_accum=8     │
 │                                    │
 └────────────────────────────────────┘
 ```
-
-> **Inspired by:** System diagram pattern from KubeSRE's ARCHITECTURE.md. Adversarial designer from KubeSRE (Claude designs incidents targeting weak spots). TransitionEngine + OutputGenerator + NoiseModel from Bio Experiment (separates hidden state updates from noisy output generation). Judge persona scaling from KubeSRE (junior/senior/principal). JSONL episode transcripts from KubeSRE (agent_transcripts.jsonl).
 
 ## One Episode
 
@@ -50,26 +42,20 @@ H100 (all-in-one)                              Trial Simulator
    Regulatory: submit_to_fda_review
    Analysis: run_primary_analysis → synthesize_conclusion
 
-3. Each action (inspired by Bio Experiment's TransitionEngine → OutputGenerator pipeline):
-   → RuleEngine checks FDA constraints + prerequisites (hard block if violated)
-   → TransitionEngine updates TrialLatentState (hidden: enroll patients, spend budget, etc.)
-   → OutputGenerator conditions on new hidden state, injects realistic noise via NoiseModel
-   → Phase detector classifies into workflow phase (like KubeSRE: triage→investigate→fix→verify)
+3. Each action:
+   → Phase detector classifies into workflow phase
+   → Rule engine checks FDA constraints + prerequisites
+   → Simulator updates hidden state (enroll patients, spend budget, etc.)
    → Reward computer calculates 8 decomposed components
-   → Phase-order bonus/penalty applied (+0.2 correct / -0.3×skipped)
-   → Step logged to episode_transcripts/*.jsonl (action, observation, reward, phase, hidden_state)
+   → Phase-order bonus/penalty applied
 
 4. Terminal (done=True):
-   → Trial simulation runs with hidden ground truth (like KubeSRE's pod health check)
+   → Trial simulation runs with hidden ground truth
    → Programmatic verification: power, p-value, FDA compliance, budget
-   → Terminal calibration: agent's conclusions vs hidden truth (like Bio's calibration score)
    → Terminal reward: +5 to +14 (success) or -2 to -3 (failure)
-   → Overconfidence penalty: -0.5 per high-confidence wrong claim (from Bio Experiment)
    → Curriculum records outcome, adjusts difficulty for next episode
-   → If at expert tier: AdversarialDesigner notes weak spots for next scenario
 
 5. GRPO computes advantages across 8 parallel rollouts, updates weights
-   → Episode transcript saved: full action-observation-reward sequence for offline analysis
 ```
 
 ## Component Responsibilities
@@ -80,84 +66,41 @@ H100 (all-in-one)                              Trial Simulator
 - Deployed on HF Spaces as Docker container using `openenv-base` image
 
 ### Trial Simulator (`server/simulator/`)
-- Holds `TrialLatentState` (hidden ground truth) — inspired by Bio Experiment's hidden DE genes / true cell populations
+- Holds `TrialLatentState` (hidden ground truth)
 - Executes agent's trial design against hidden parameters
 - Returns p-values, confidence intervals, adverse event rates
-- Uses real scipy.stats for power calculations and statistical tests — like KubeSRE's real kubectl against live cluster
-
-### TransitionEngine (`server/simulator/transition_engine.py`)
-> *Pattern from Bio Experiment: separates hidden state mutation from observation generation*
-- Receives validated action from RuleEngine
-- Mutates `TrialLatentState`: enrolls patients, spends budget, advances time, records adverse events
-- Degrades data quality on soft violations (like Bio's quality degradation on rule violations)
-- Never produces observations directly — hands updated state to OutputGenerator
-
-### OutputGenerator (`server/simulator/output_generator.py`)
-> *Pattern from Bio Experiment: conditions on hidden state, then injects realistic noise*
-- Takes updated `TrialLatentState` from TransitionEngine
-- Generates observation conditioned on hidden state (e.g., noisy effect size estimate from true value)
-- Calls NoiseModel to inject measurement noise, site variability, dropout artifacts
-- Agent only sees this noisy output — never the clean hidden state
+- Uses real scipy.stats for power calculations and statistical tests
 
 ### FDA Rule Engine (`server/rules/`)
-> *Pattern from Bio Experiment's prerequisite rules: hard constraints that block invalid actions*
 - Encodes ICH E9 guidelines as hard constraints
 - Checks: phase prerequisites, sample size floors, alpha-spending, randomization, blinding
 - Returns binary pass/fail per rule — no LLM judgment
-- Blocked actions return error observation (not silent failure)
 
 ### Reward Computer (`server/reward/`)
-> *Pattern from all 3 winners: decomposed, interpretable, independently verifiable components*
 - 8 decomposed components: validity, ordering, info_gain, efficiency, novelty, penalty, terminal_success, terminal_calibration
 - Each component independently verifiable and debuggable
 - Potential-based shaping: γ·(φ(s') − φ(s)) where φ = milestone_completion × budget_efficiency
-- Terminal calibration: agent's conclusions vs hidden truth — like Bio's ground-truth calibration score (4.0 weight)
-- Overconfidence penalty: -0.5 per high-confidence wrong claim — directly from Bio Experiment
 
 ### Curriculum Controller (`server/curriculum/`)
-> *Pattern from KubeSRE: 5 tiers with per-fault mastery tracking + fast-track advancement*
 - 5 tiers: warmup → beginner → intermediate → advanced → expert
-- Per-scenario-type mastery tracking (70% success over window = graduated) — same threshold as KubeSRE
-- Fast-track: 90%+ success after 3 episodes → skip min_episodes requirement — from KubeSRE
+- Per-scenario-type mastery tracking (70% success over window = graduated)
 - Weak-spot targeting: harder parameters for mastered scenario types
-- Judge strictness scales with difficulty (junior → senior → principal)
-
-### AdversarialDesigner (`server/curriculum/adversarial_designer.py`)
-> *Pattern from KubeSRE: Claude designs incidents targeting agent's tracked weak spots*
-- Activates at expert tier (difficulty > 0.80)
-- Analyzes agent's failure patterns across episodes (which scenarios fail, which phases trip up)
-- Generates targeted scenario parameters: e.g., if agent struggles with subgroup identification, inject more hidden subgroups with misleading Phase I signals
-- Compound challenges: multiple hidden factors simultaneously (small effect + hidden subgroup + high dropout)
-- All generated scenarios validated as solvable within step budget — from KubeSRE's inject/fix pair validation
+- Judge strictness scales with difficulty (future Push 3)
 
 ### Phase Detector (`server/phase_detector.py`)
-> *Pattern from KubeSRE: triage → investigate → fix → verify workflow with phase-order bonus*
 - Classifies each action into clinical workflow phase
 - Phases: literature_review → hypothesis → design → enrollment → monitoring → analysis → submission
-- Bonus (+0.2) for correct phase ordering, penalty (-0.3) per skipped phase
+- Bonus (+0.2) for correct phase ordering, penalty (-0.3) for phase skipping
 
 ### NoiseModel (`server/noise_model.py`)
-> *Pattern from Bio Experiment: centralized stochasticity with seeded numpy.Generator*
 - Centralizes all stochasticity with seeded `numpy.Generator`
 - Domain randomization: budget ±30%, time ±20%, dropout ±15%, placebo ±20%
 - Same seed → same episode (reproducibility guarantee)
-- Prevents overfitting to specific parameter values — Bio's key defense against memorization
 
 ### TrialJudge (`server/judge.py`)
-> *Pattern from KubeSRE: programmatic health check + LLM judge + persona scaling*
-- Layer 1 (programmatic): power check, p-value check, FDA rule pass, budget check — authoritative
-- Layer 2 (persona-scaled LLM): workflow quality assessment, justification quality scoring
-  - Junior persona (difficulty < 0.4): lenient, gives hints in observation — like KubeSRE's junior judge
-  - Senior persona (0.4–0.7): standard clinical expectations, no hints
-  - Principal persona (> 0.7): strict, penalizes inefficiency, flags redundant tests
-- Programmatic layer is authoritative — LLM layer never overrides it (same as KubeSRE)
-
-### Episode Logger (`server/logger.py`)
-> *Pattern from KubeSRE: episode_transcripts.jsonl + agent_transcripts.jsonl*
-- Saves full episode transcript to JSONL: one line per step with action, observation, reward breakdown, phase, hidden state snapshot
-- Saves reward CSV: episode_id, step, each reward component, total, cumulative
-- Saves curriculum log: episode_id, tier, scenario_id, difficulty, outcome, advancement
-- Enables offline debugging, reward curve plotting, and before/after comparison
+- Layer 1 (programmatic): power check, p-value check, FDA rule pass, budget check
+- Layer 2 (optional LLM): workflow quality assessment for debugging/demo
+- Programmatic layer is authoritative — LLM layer never overrides it
 
 ## Data Models
 
@@ -168,61 +111,35 @@ TrialAction
 ├── justification: str
 └── confidence: float (0.0–1.0)
 
-TrialObservation (agent sees this — noisy, generated by OutputGenerator)
+TrialObservation
 ├── scenario_description: str
-├── phase_data: dict (noisy results from experiments — NOT raw hidden values)
+├── phase_data: dict (noisy results from experiments)
 ├── resource_status: dict (budget_remaining, time_remaining, patients_enrolled)
 ├── rule_violations: list[str]
-├── available_actions: list[str] (valid actions given current prerequisites)
 ├── steps_taken: int
 ├── max_steps: int
-├── hint: str (only at junior difficulty — judge persona feature)
+├── hint: str (only at junior difficulty)
 ├── done: bool
 └── reward: float
 
-TrialState (episode metadata — visible to training loop)
+TrialState
 ├── episode_id: str
 ├── step_count: int
 ├── difficulty: float
 ├── scenario_id: str
-├── curriculum_tier: str
 ├── curriculum_stats: dict
-├── action_diversity: float (unique actions / total actions — from VRAM)
-├── phase_compliance_rate: float
 └── is_resolved: bool
 
-TrialLatentState (HIDDEN — never sent to agent, like Bio's hidden DE genes)
+TrialLatentState (HIDDEN — never sent to agent)
 ├── true_effect_size: float
 ├── true_side_effect_rate: float
 ├── true_responder_population: str
-├── true_responder_criteria: list[str] (e.g., ["BRCA1+", "age < 65"])
 ├── true_dose_response: dict
-├── true_mechanism: str
 ├── placebo_response_rate: float
 ├── dropout_rate: float
-├── site_variability: float
-├── measurement_noise: float
 ├── budget_remaining: float
 ├── time_remaining_days: int
-├── patients_enrolled: int
-├── phase_i_complete: bool
-├── mtd_identified: bool
-├── effect_estimated: bool
-├── protocol_submitted: bool
-├── interim_complete: bool
-└── trial_complete: bool
-
-EpisodeTranscript (JSONL — one line per step, like KubeSRE)
-├── episode_id: str
-├── step: int
-├── action: TrialAction
-├── observation: TrialObservation
-├── reward_breakdown: dict (each of 8 components)
-├── total_reward: float
-├── phase_detected: str
-├── phase_order_correct: bool
-├── hidden_state_snapshot: TrialLatentState (for offline debugging only)
-└── timestamp: str
+└── patients_enrolled: int
 ```
 
 ## File Structure (Target)
@@ -234,8 +151,6 @@ openenv-clinical-trial/
 │   ├── environment.py            # Core env: reset → step → reward → done
 │   ├── simulator/
 │   │   ├── trial_simulator.py    # Run trial against hidden truth
-│   │   ├── transition_engine.py  # Hidden state mutation (Bio pattern)
-│   │   ├── output_generator.py   # Noisy observation from hidden state (Bio pattern)
 │   │   └── power_calculator.py   # scipy.stats power calculations
 │   ├── rules/
 │   │   ├── fda_rules.py          # FDA ICH E9 constraint engine
@@ -245,12 +160,10 @@ openenv-clinical-trial/
 │   │   └── shaping.py            # Potential-based reward shaping
 │   ├── curriculum/
 │   │   ├── controller.py         # 5-tier curriculum + mastery tracking
-│   │   ├── scenarios.py          # 4 scenario configs with hidden truth
-│   │   └── adversarial_designer.py # Expert-tier scenario generation (KubeSRE pattern)
-│   ├── noise_model.py            # Seeded domain randomization (Bio pattern)
+│   │   └── scenarios.py          # 4 scenario configs with hidden truth
+│   ├── noise_model.py            # Seeded domain randomization
 │   ├── phase_detector.py         # Clinical workflow phase classification
-│   ├── judge.py                  # Multi-layer verification (programmatic + LLM)
-│   └── logger.py                 # Episode transcript JSONL + reward CSV (KubeSRE pattern)
+│   └── judge.py                  # Multi-layer verification (programmatic + LLM)
 ├── models.py                     # TrialAction, TrialObservation, TrialState, etc.
 ├── client.py                     # Sync client for training
 ├── train.py                      # GRPO training (TRL + vLLM colocate)
