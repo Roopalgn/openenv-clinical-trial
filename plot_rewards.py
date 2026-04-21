@@ -27,6 +27,7 @@ import matplotlib.pyplot as plt
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Plot per-episode reward curve from reward_log.csv"
@@ -50,6 +51,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 # Data loading
 # ---------------------------------------------------------------------------
 
+
 def _load(csv_path: Path) -> pd.DataFrame:
     if not csv_path.exists():
         print(f"[plot_rewards] ERROR: CSV not found: {csv_path}", file=sys.stderr)
@@ -70,18 +72,14 @@ def _load(csv_path: Path) -> pd.DataFrame:
 # Plot
 # ---------------------------------------------------------------------------
 
+
 def _plot(df: pd.DataFrame, out_path: Path) -> None:
     rewards = df["total_reward"].to_numpy(dtype=float)
     episodes = df["episode_num"].to_numpy(dtype=float)
     n = len(rewards)
 
     window = max(2, min(20, n // 5))
-    rolling = (
-        pd.Series(rewards)
-        .rolling(window=window, min_periods=1)
-        .mean()
-        .to_numpy()
-    )
+    rolling = pd.Series(rewards).rolling(window=window, min_periods=1).mean().to_numpy()
 
     # Linear trend
     coeffs = np.polyfit(episodes, rewards, 1)
@@ -181,6 +179,7 @@ def _plot(df: pd.DataFrame, out_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
 
 def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)

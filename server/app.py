@@ -18,7 +18,7 @@ from typing import Any
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel
 
 from models import TrialAction, TrialObservation, TrialState
@@ -119,6 +119,26 @@ def schema() -> dict[str, Any]:
         "TrialAction": TrialAction.model_json_schema(),
         "TrialObservation": TrialObservation.model_json_schema(),
     }
+
+
+@app.get("/transcripts")
+def transcripts() -> PlainTextResponse:
+    """Return all logged episode transcripts as concatenated JSONL for demo replay."""
+    transcripts_dir = settings.log_path / "episode_transcripts"
+    if not transcripts_dir.exists():
+        return PlainTextResponse(content="", media_type="application/x-ndjson")
+
+    lines: list[str] = []
+    for jsonl_file in sorted(transcripts_dir.glob("*.jsonl")):
+        try:
+            lines.append(jsonl_file.read_text(encoding="utf-8").rstrip("\n"))
+        except OSError as exc:
+            logger.warning("Could not read transcript file %s: %s", jsonl_file, exc)
+
+    return PlainTextResponse(
+        content="\n".join(lines) + ("\n" if lines else ""),
+        media_type="application/x-ndjson",
+    )
 
 
 @app.websocket("/ws")

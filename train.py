@@ -41,11 +41,13 @@ log = logging.getLogger("train")
 # imported in test environments without the full ML stack installed.
 # ---------------------------------------------------------------------------
 
+
 def _import_trl():
     try:
         import torch
         from peft import LoraConfig, TaskType
         from trl import GRPOConfig, GRPOTrainer
+
         return GRPOConfig, GRPOTrainer, LoraConfig, TaskType, torch
     except ImportError as exc:
         log.error(
@@ -59,6 +61,7 @@ def _import_trl():
 # ---------------------------------------------------------------------------
 # Rollout helpers
 # ---------------------------------------------------------------------------
+
 
 def _build_action_from_text(text: str, step: int) -> "TrialAction":
     """Parse a model-generated text into a TrialAction.
@@ -131,7 +134,9 @@ def rollout_func(
         )
 
         # Tokenize and generate
-        inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=1024)
+        inputs = tokenizer(
+            prompt, return_tensors="pt", truncation=True, max_length=1024
+        )
         with torch.no_grad():
             outputs = model.generate(
                 **inputs,
@@ -143,22 +148,28 @@ def rollout_func(
             )
 
         # Use the first generation for the actual env step
-        response_ids = outputs[0][inputs["input_ids"].shape[1]:]
+        response_ids = outputs[0][inputs["input_ids"].shape[1] :]
         response_text = tokenizer.decode(response_ids, skip_special_tokens=True)
 
         action = _build_action_from_text(response_text, step_idx)
         next_obs, reward_dict, done, info = env.step_full(action)
 
-        total_reward = sum(reward_dict.values()) if isinstance(reward_dict, dict) else float(reward_dict)
+        total_reward = (
+            sum(reward_dict.values())
+            if isinstance(reward_dict, dict)
+            else float(reward_dict)
+        )
 
-        experiences.append({
-            "prompt": prompt,
-            "response": response_text,
-            "reward": total_reward,
-            "step": step_idx,
-            "done": done,
-            "info": info,
-        })
+        experiences.append(
+            {
+                "prompt": prompt,
+                "response": response_text,
+                "reward": total_reward,
+                "step": step_idx,
+                "done": done,
+                "info": info,
+            }
+        )
 
         obs = next_obs
         if done:
@@ -170,6 +181,7 @@ def rollout_func(
 # ---------------------------------------------------------------------------
 # Reward CSV logger
 # ---------------------------------------------------------------------------
+
 
 class RewardCSVLogger:
     """Appends per-episode reward rows to a CSV file."""
@@ -200,14 +212,16 @@ class RewardCSVLogger:
     ) -> None:
         try:
             with self._path.open("a", newline="", encoding="utf-8") as fh:
-                csv.writer(fh).writerow([
-                    episode,
-                    seed,
-                    round(total_reward, 6),
-                    steps,
-                    terminal_outcome,
-                    datetime.now(timezone.utc).isoformat(),
-                ])
+                csv.writer(fh).writerow(
+                    [
+                        episode,
+                        seed,
+                        round(total_reward, 6),
+                        steps,
+                        terminal_outcome,
+                        datetime.now(timezone.utc).isoformat(),
+                    ]
+                )
         except OSError as exc:
             log.warning("RewardCSVLogger: could not write row: %s", exc)
 
@@ -215,6 +229,7 @@ class RewardCSVLogger:
 # ---------------------------------------------------------------------------
 # Training summary
 # ---------------------------------------------------------------------------
+
 
 def _write_summary(
     out_path: Path,
@@ -251,7 +266,10 @@ def _write_summary(
 # GRPO training loop
 # ---------------------------------------------------------------------------
 
-def _grpo_reward_fn(completions: list[str], env: "Environment", seed: int, max_steps: int) -> list[float]:
+
+def _grpo_reward_fn(
+    completions: list[str], env: "Environment", seed: int, max_steps: int
+) -> list[float]:
     """Reward function passed to GRPOTrainer.
 
     Runs a mini-rollout for each completion and returns the total episode reward.
@@ -264,7 +282,11 @@ def _grpo_reward_fn(completions: list[str], env: "Environment", seed: int, max_s
         for step_idx in range(max_steps):
             action = _build_action_from_text(completion, step_idx)
             _, reward_dict, done, _ = env.step_full(action)
-            total += sum(reward_dict.values()) if isinstance(reward_dict, dict) else float(reward_dict)
+            total += (
+                sum(reward_dict.values())
+                if isinstance(reward_dict, dict)
+                else float(reward_dict)
+            )
             if done:
                 break
         rewards.append(total)
@@ -345,7 +367,9 @@ def train(args: argparse.Namespace) -> None:
     )
 
     for ep in range(args.episodes):
-        ep_seed = args.seed + ep if args.seed is not None else random.randint(0, 2**31 - 1)
+        ep_seed = (
+            args.seed + ep if args.seed is not None else random.randint(0, 2**31 - 1)
+        )
 
         # Run one rollout episode directly via env (Req 11.4)
         experiences = rollout_func(
@@ -359,7 +383,9 @@ def train(args: argparse.Namespace) -> None:
 
         total_reward = sum(e["reward"] for e in experiences)
         steps_taken = len(experiences)
-        terminal_outcome = "success" if (experiences and experiences[-1]["done"]) else "timeout"
+        terminal_outcome = (
+            "success" if (experiences and experiences[-1]["done"]) else "timeout"
+        )
 
         episode_rewards.append(total_reward)
 
@@ -405,6 +431,7 @@ def train(args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(

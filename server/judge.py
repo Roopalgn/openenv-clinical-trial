@@ -176,9 +176,10 @@ def _call_llm(
 
         raw = response.choices[0].message.content or "{}"
         data = json.loads(raw)
-        feedback = str(data.get("feedback", "")).strip() or _stub_feedback(
-            persona, violations, passed, action, latent
-        )[0]
+        feedback = (
+            str(data.get("feedback", "")).strip()
+            or _stub_feedback(persona, violations, passed, action, latent)[0]
+        )
         hint_raw = data.get("hint")
         hint = str(hint_raw).strip() if hint_raw and persona == "junior" else None
         return feedback, hint

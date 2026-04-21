@@ -12,12 +12,11 @@ Verifies:
 import pytest
 
 from server.curriculum.adversarial_designer import (
-    EXPERT_DIFFICULTY_THRESHOLD,
-    AdversarialDesigner,
     _HIGH_DROPOUT_RANGE,
     _SMALL_EFFECT_RANGE,
+    EXPERT_DIFFICULTY_THRESHOLD,
+    AdversarialDesigner,
 )
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -204,8 +203,11 @@ def test_get_weak_spots_returns_copy():
 
 def test_validate_solvable_raises_for_tiny_budget():
     """A scenario with time_budget_days < _MIN_STEPS_REQUIRED should raise."""
-    from server.curriculum.adversarial_designer import AdversarialDesigner, _MIN_STEPS_REQUIRED
     from models import ScenarioConfig
+    from server.curriculum.adversarial_designer import (
+        _MIN_STEPS_REQUIRED,
+        AdversarialDesigner,
+    )
 
     tiny_scenario = ScenarioConfig(
         scenario_id="too_small",

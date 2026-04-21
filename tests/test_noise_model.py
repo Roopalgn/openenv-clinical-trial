@@ -70,34 +70,34 @@ class TestNoiseModelRanges:
             result = NoiseModel(seed=seed).randomize(base_scenario)
             lo = base_scenario.budget_usd * 0.70
             hi = base_scenario.budget_usd * 1.30
-            assert lo <= result.budget_usd <= hi, (
-                f"seed={seed}: budget {result.budget_usd} outside [{lo}, {hi}]"
-            )
+            assert (
+                lo <= result.budget_usd <= hi
+            ), f"seed={seed}: budget {result.budget_usd} outside [{lo}, {hi}]"
 
     def test_time_within_20_percent(self, base_scenario: ScenarioConfig) -> None:
         for seed in range(50):
             result = NoiseModel(seed=seed).randomize(base_scenario)
             lo = base_scenario.time_budget_days * 0.80
             hi = base_scenario.time_budget_days * 1.20
-            assert lo <= result.time_budget_days <= hi, (
-                f"seed={seed}: time {result.time_budget_days} outside [{lo}, {hi}]"
-            )
+            assert (
+                lo <= result.time_budget_days <= hi
+            ), f"seed={seed}: time {result.time_budget_days} outside [{lo}, {hi}]"
 
     def test_dropout_range_valid(self, base_scenario: ScenarioConfig) -> None:
         for seed in range(50):
             result = NoiseModel(seed=seed).randomize(base_scenario)
             lo, hi = result.dropout_rate_range
-            assert 0.0 <= lo <= hi <= 1.0, (
-                f"seed={seed}: dropout range [{lo}, {hi}] invalid"
-            )
+            assert (
+                0.0 <= lo <= hi <= 1.0
+            ), f"seed={seed}: dropout range [{lo}, {hi}] invalid"
 
     def test_placebo_range_valid(self, base_scenario: ScenarioConfig) -> None:
         for seed in range(50):
             result = NoiseModel(seed=seed).randomize(base_scenario)
             lo, hi = result.placebo_response_range
-            assert 0.0 <= lo <= hi <= 1.0, (
-                f"seed={seed}: placebo range [{lo}, {hi}] invalid"
-            )
+            assert (
+                0.0 <= lo <= hi <= 1.0
+            ), f"seed={seed}: placebo range [{lo}, {hi}] invalid"
 
     def test_non_randomized_fields_unchanged(
         self, base_scenario: ScenarioConfig

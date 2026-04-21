@@ -354,21 +354,27 @@ def test_llm_path_used_when_configured():
 
     # Mock the OpenAI client response
     mock_choice = MagicMock()
-    mock_choice.message.content = '{"feedback": "LLM feedback text.", "hint": "LLM hint."}'
+    mock_choice.message.content = (
+        '{"feedback": "LLM feedback text.", "hint": "LLM hint."}'
+    )
     mock_response = MagicMock()
     mock_response.choices = [mock_choice]
 
     mock_client = MagicMock()
     mock_client.chat.completions.create.return_value = mock_response
 
-    with patch("server.config.settings") as mock_settings, \
-         patch("server.judge.OpenAI", return_value=mock_client, create=True):
+    with (
+        patch("server.config.settings") as mock_settings,
+        patch("server.judge.OpenAI", return_value=mock_client, create=True),
+    ):
         mock_settings.judge_llm_model = "gpt-4o-mini"
         mock_settings.judge_llm_api_key = "sk-test"
         mock_settings.judge_llm_base_url = None
 
         # Patch the import inside _call_llm
-        with patch.dict("sys.modules", {"openai": MagicMock(OpenAI=lambda **kw: mock_client)}):
+        with patch.dict(
+            "sys.modules", {"openai": MagicMock(OpenAI=lambda **kw: mock_client)}
+        ):
             result = judge.verify(_make_action(), _make_state(difficulty=0.2), latent)
 
     assert result.llm_used is True
@@ -379,8 +385,10 @@ def test_llm_fallback_to_stub_on_import_error():
     judge = TrialJudge()
     latent = _make_latent(budget_remaining=0.0)
 
-    with patch("server.config.settings") as mock_settings, \
-         patch.dict("sys.modules", {"openai": None}):
+    with (
+        patch("server.config.settings") as mock_settings,
+        patch.dict("sys.modules", {"openai": None}),
+    ):
         mock_settings.judge_llm_model = "gpt-4o-mini"
         mock_settings.judge_llm_api_key = "sk-test"
         mock_settings.judge_llm_base_url = None

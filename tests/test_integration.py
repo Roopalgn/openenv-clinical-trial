@@ -24,8 +24,8 @@ from models import (
     TrialResult,
 )
 from server.episode_manager import EpisodeManager
-from server.rules.fda_rules import check_fda_compliance
 from server.reward.reward_computer import compute_reward
+from server.rules.fda_rules import check_fda_compliance
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -494,8 +494,14 @@ class TestComputeReward:
             f"expected RewardBreakdown, got {type(breakdown)}"
         )
         for key in (
-            "r_validity", "r_ordering", "r_info_gain", "r_efficiency",
-            "r_novelty", "r_penalty", "r_terminal_success", "r_terminal_calibration",
+            "r_validity",
+            "r_ordering",
+            "r_info_gain",
+            "r_efficiency",
+            "r_novelty",
+            "r_penalty",
+            "r_terminal_success",
+            "r_terminal_calibration",
         ):
             val = getattr(breakdown, key)
             assert isinstance(val, float), (
@@ -595,8 +601,14 @@ class TestComputeReward:
         breakdown_b = compute_reward(action=action, latent=latent, result=result)
 
         for key in (
-            "r_validity", "r_ordering", "r_info_gain", "r_efficiency",
-            "r_novelty", "r_penalty", "r_terminal_success", "r_terminal_calibration",
+            "r_validity",
+            "r_ordering",
+            "r_info_gain",
+            "r_efficiency",
+            "r_novelty",
+            "r_penalty",
+            "r_terminal_success",
+            "r_terminal_calibration",
         ):
             val_a = getattr(breakdown_a, key)
             val_b = getattr(breakdown_b, key)
@@ -668,9 +680,9 @@ class TestFailureReporting:
         with pytest.raises(AssertionError) as exc_info:
             assert expected == actual, msg
 
-        assert f"seed={seed}" in str(exc_info.value), (
-            "Assertion message must contain the seed value"
-        )
+        assert f"seed={seed}" in str(
+            exc_info.value
+        ), "Assertion message must contain the seed value"
 
     def test_assertion_message_contains_step_index(self):
         """Assertion messages must include the step index."""
@@ -679,15 +691,14 @@ class TestFailureReporting:
         field = "trial_complete"
 
         msg = (
-            f"seed={seed} | step={step} | field={field} | "
-            f"expected True, got False"
+            f"seed={seed} | step={step} | field={field} | " f"expected True, got False"
         )
         with pytest.raises(AssertionError) as exc_info:
             assert False, msg
 
-        assert f"step={step}" in str(exc_info.value), (
-            "Assertion message must contain the step index"
-        )
+        assert f"step={step}" in str(
+            exc_info.value
+        ), "Assertion message must contain the step index"
 
     def test_assertion_message_contains_differing_field(self):
         """Assertion messages must include the name of the differing field."""
@@ -695,16 +706,13 @@ class TestFailureReporting:
         step = 2
         field = "patients_enrolled"
 
-        msg = (
-            f"seed={seed} | step={step} | field={field} | "
-            f"run1=50, run2=60"
-        )
+        msg = f"seed={seed} | step={step} | field={field} | " f"run1=50, run2=60"
         with pytest.raises(AssertionError) as exc_info:
             assert False, msg
 
-        assert f"field={field}" in str(exc_info.value), (
-            "Assertion message must contain the differing field name"
-        )
+        assert f"field={field}" in str(
+            exc_info.value
+        ), "Assertion message must contain the differing field name"
 
     def test_reproducibility_failure_message_format(self):
         """Reproducibility failures must report seed, step, and field."""

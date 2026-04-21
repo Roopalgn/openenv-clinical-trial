@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from starlette.testclient import TestClient
 
-from server.app import app, _manager
+from server.app import _manager, app
 
 client = TestClient(app, raise_server_exceptions=False)
 
