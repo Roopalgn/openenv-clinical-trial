@@ -38,10 +38,12 @@ log = logging.getLogger("eval_compare")
 # Lazy imports — ML stack is optional at import time
 # ---------------------------------------------------------------------------
 
+
 def _import_ml_stack():
     try:
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
+
         return AutoModelForCausalLM, AutoTokenizer, torch
     except ImportError as exc:
         log.error(
@@ -56,9 +58,11 @@ def _import_ml_stack():
 # Episode result tracking
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class EpisodeResult:
     """Tracks the outcome of a single evaluation episode."""
+
     episode_id: int
     seed: int
     total_reward: float
@@ -71,6 +75,7 @@ class EpisodeResult:
 # ---------------------------------------------------------------------------
 # Policy implementations
 # ---------------------------------------------------------------------------
+
 
 class RandomPolicy:
     """Base policy that selects random valid actions."""
@@ -137,7 +142,9 @@ class TrainedPolicy:
         )
 
         # Tokenize and generate
-        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=1024)
+        inputs = self.tokenizer(
+            prompt, return_tensors="pt", truncation=True, max_length=1024
+        )
         inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
 
         with self.torch.no_grad():
@@ -149,7 +156,7 @@ class TrainedPolicy:
                 pad_token_id=self.tokenizer.eos_token_id,
             )
 
-        response_ids = outputs[0][inputs["input_ids"].shape[1]:]
+        response_ids = outputs[0][inputs["input_ids"].shape[1] :]
         response_text = self.tokenizer.decode(response_ids, skip_special_tokens=True)
 
         # Parse response into TrialAction
@@ -176,6 +183,7 @@ class TrainedPolicy:
 # ---------------------------------------------------------------------------
 # Episode runner
 # ---------------------------------------------------------------------------
+
 
 def run_episode(
     env: "Environment",
@@ -204,7 +212,11 @@ def run_episode(
         action = policy.select_action(obs, step_idx)
         obs, reward_dict, done, info = env.step_full(action)
 
-        step_reward = sum(reward_dict.values()) if isinstance(reward_dict, dict) else float(reward_dict)
+        step_reward = (
+            sum(reward_dict.values())
+            if isinstance(reward_dict, dict)
+            else float(reward_dict)
+        )
         total_reward += step_reward
         steps += 1
 
@@ -230,6 +242,7 @@ def run_episode(
 # Comparison report generation
 # ---------------------------------------------------------------------------
 
+
 def generate_comparison_report(
     base_results: list[EpisodeResult],
     trained_results: list[EpisodeResult],
@@ -243,6 +256,7 @@ def generate_comparison_report(
     Returns:
         Dictionary with comparison metrics.
     """
+
     def compute_metrics(results: list[EpisodeResult]) -> dict[str, Any]:
         if not results:
             return {
@@ -298,7 +312,9 @@ def generate_comparison_report(
                 trained_metrics["mean_reward"] - base_metrics["mean_reward"], 4
             ),
             "mean_episode_length_delta": round(
-                trained_metrics["mean_episode_length"] - base_metrics["mean_episode_length"], 2
+                trained_metrics["mean_episode_length"]
+                - base_metrics["mean_episode_length"],
+                2,
             ),
         },
         "scenario_breakdown": {
@@ -343,6 +359,7 @@ def print_comparison_report(report: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 # Main evaluation loop
 # ---------------------------------------------------------------------------
+
 
 def evaluate(args: argparse.Namespace) -> None:
     """Main evaluation entry point (Req 12.1, 12.2, 12.3, 12.4)."""
@@ -408,6 +425,7 @@ def evaluate(args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(

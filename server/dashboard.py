@@ -70,7 +70,12 @@ async def dashboard_stats() -> dict:
     """
     reward_csv = settings.log_path / "reward_log.csv"
     if not reward_csv.exists():
-        return {"total_episodes": 0, "mean_reward": 0.0, "success_rate": 0.0, "tiers": {}}
+        return {
+            "total_episodes": 0,
+            "mean_reward": 0.0,
+            "success_rate": 0.0,
+            "tiers": {},
+        }  # noqa: E501
 
     rows: list[dict] = []
     try:
@@ -82,7 +87,12 @@ async def dashboard_stats() -> dict:
         return {"error": str(exc)}
 
     if not rows:
-        return {"total_episodes": 0, "mean_reward": 0.0, "success_rate": 0.0, "tiers": {}}
+        return {
+            "total_episodes": 0,
+            "mean_reward": 0.0,
+            "success_rate": 0.0,
+            "tiers": {},
+        }
 
     total = len(rows)
     rewards = [float(r.get("total_reward", 0)) for r in rows]

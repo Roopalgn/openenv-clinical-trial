@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  push:
+    branches-ignore:
+      - develop
+      - main
+  pull_request:
+    branches:
+      - develop
+
+jobs:
+  lint:
+    name: Ruff Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ruff
+        run: pip install ruff==0.4.4
+
+      - name: Run ruff lint
+        run: ruff check .
+
+  format:
+    name: Ruff Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ruff
+        run: pip install ruff==0.4.4
+
+      - name: Run ruff format check
+        run: ruff format --check .
+
+  test:
+    name: Pytest Suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip==24.0
+          pip install \
+            fastapi==0.111.0 \
+            "uvicorn[standard]==0.29.0" \
+            pydantic==2.7.1 \
+            pydantic-settings==2.2.1 \
+            scipy==1.13.0 \
+            numpy==1.26.4 \
+            matplotlib==3.8.4 \
+            pandas==2.2.2 \
+            pytest==8.2.0 \
+            httpx==0.27.0
+          pip install --no-deps .
+
+      - name: Run tests
+        run: pytest --tb=short
+
+  docker:
+    name: Docker Build + Ping Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t openenv-clinical-trial:ci .
+
+      - name: Start container
+        run: |
+          docker run -d \
+            --name openenv-ci \
+            -p 8000:8000 \
+            -e LOG_PATH=/tmp/logs \
+            openenv-clinical-trial:ci
+
+      - name: Wait for /ping
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/ping; then
+              echo "ping OK"
+              exit 0
+            fi
+            echo "Attempt $i: waiting..."
+            sleep 1
+          done
+          echo "ERROR: /ping did not respond within 30 seconds"
+          docker logs openenv-ci
+          exit 1
+
+      - name: Stop container
+        if: always()
+        run: docker rm -f openenv-ci

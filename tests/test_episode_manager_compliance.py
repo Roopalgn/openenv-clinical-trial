@@ -12,6 +12,7 @@ import pytest
 
 from models import ActionType, TrialAction
 from server.episode_manager import EpisodeManager
+from server.simulator.power_calculator import calculate_power
 
 
 def _make_action(action_type: ActionType, **params) -> TrialAction:
@@ -46,9 +47,9 @@ class TestInvalidActionReturnsNegativeRValidity:
 
         manager.step(action)
 
-        assert len(manager._latent.action_history) == step_before, (
-            "action_history must not change on invalid action"
-        )
+        assert (
+            len(manager._latent.action_history) == step_before
+        ), "action_history must not change on invalid action"
 
     def test_invalid_action_rule_violations_populated(
         self, manager: EpisodeManager
@@ -112,8 +113,6 @@ class TestNoUnhandledExceptions:
 # ---------------------------------------------------------------------------
 # Task 26: Power cache tests (Requirements 14.1, 14.2, 14.3, 14.4)
 # ---------------------------------------------------------------------------
-
-from server.simulator.power_calculator import calculate_power
 
 
 class TestPowerCache:

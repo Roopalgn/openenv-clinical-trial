@@ -10,8 +10,6 @@ Requirements 15.2, 15.3, 15.4:
 
 from __future__ import annotations
 
-import pytest
-
 from models import ActionType, TrialAction, TrialLatentState, TrialResult
 from server.simulator.trial_simulator import simulate_trial
 

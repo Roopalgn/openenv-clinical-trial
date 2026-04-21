@@ -132,9 +132,9 @@ class TestPhaseOrderCorrectness:
         ]
         for at in sequence:
             phase, correct = detect_phase(_action(at), history)
-            assert correct is True, (
-                f"Expected correct order for {at} with history {history}"
-            )
+            assert (
+                correct is True
+            ), f"Expected correct order for {at} with history {history}"
             history.append(phase)
 
 

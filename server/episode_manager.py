@@ -32,9 +32,9 @@ from server.phase_detector import detect_phase
 from server.reward.reward_computer import compute_reward
 from server.rules.fda_rules import check_fda_compliance
 from server.simulator.output_generator import OutputGenerator
+from server.simulator.power_calculator import calculate_power
 from server.simulator.transition_engine import TransitionEngine
 from server.simulator.trial_simulator import simulate_trial
-from server.simulator.power_calculator import calculate_power
 
 _MAX_STEPS = 100
 
@@ -245,7 +245,9 @@ class EpisodeManager:
             self._phase_history = self._phase_history + [phase_name]
 
             # Step 4: Simulate trial result for reward computation
-            result = simulate_trial(self._latent, action, power_fn=self.cached_calculate_power)
+            result = simulate_trial(
+                self._latent, action, power_fn=self.cached_calculate_power
+            )
 
             # Step 5: Compute reward (all 8 components)
             reward = compute_reward(
