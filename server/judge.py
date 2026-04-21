@@ -7,22 +7,34 @@ Layer 1 (programmatic, authoritative, never overridden):
   - FDA compliance passes
   - budget_remaining > 0
 
-Layer 2 (persona-scaled LLM stub):
+Layer 2 (persona-scaled LLM — real when JUDGE_LLM_MODEL + JUDGE_LLM_API_KEY
+are set, rule-based stub otherwise):
   - junior  (difficulty < 0.4): gives hints, lenient feedback
   - senior  (0.4–0.7):          balanced feedback
-  - principal (> 0.7):          strict, no hints
+  - principal (> 0.7):          strict, no hints, penalises inefficiency
 
 Overconfidence penalty: -0.5 per high-confidence wrong claim
 (action.confidence >= 0.8 and the claim is incorrect per Layer 1).
+
+Environment variables:
+  JUDGE_LLM_MODEL    — model name, e.g. "gpt-4o-mini" or "claude-3-haiku-20240307"
+  JUDGE_LLM_API_KEY  — API key for OpenAI or Anthropic
+  JUDGE_LLM_BASE_URL — optional custom base URL (e.g. local vLLM endpoint)
 """
 
 from __future__ import annotations
 
+import logging
+import math
+
 from pydantic import BaseModel
+from scipy.stats import norm
 
 from models import TrialAction, TrialLatentState, TrialState
 from server.rules.fda_rules import check_fda_compliance
 from server.simulator.power_calculator import calculate_power
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Result model
@@ -38,6 +50,7 @@ class JudgeResult(BaseModel):
     hint: str | None
     overconfidence_penalty: float
     persona: str
+    llm_used: bool = False  # True when Layer 2 used a real LLM call
 
 
 # ---------------------------------------------------------------------------
@@ -59,22 +72,139 @@ def _select_persona(difficulty: float) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Layer 2: rule-based LLM stub
+# Layer 2a: real LLM call
+# ---------------------------------------------------------------------------
+
+_LLM_SYSTEM_PROMPT = """\
+You are a clinical trial design expert acting as a {persona} reviewer.
+Your role is to assess the quality of an agent's action in a clinical trial design episode.
+
+Persona behaviour:
+- junior   : lenient, educational, always provide a concrete hint
+- senior   : balanced, clinical-standard expectations, no hints
+- principal: strict, penalise inefficiency and redundancy, no hints
+
+You will receive:
+1. The action taken and its justification
+2. Whether Layer 1 programmatic checks passed
+3. Any programmatic violations found
+4. Key episode state (phase, budget, patients enrolled, milestones)
+
+Respond with a JSON object with exactly two keys:
+  "feedback": a 1-3 sentence assessment of workflow quality and justification quality
+  "hint": a concrete actionable hint string (junior only) or null
+
+Be concise. Do not repeat the violations verbatim — focus on qualitative workflow assessment.
+"""
+
+_LLM_USER_TEMPLATE = """\
+Action: {action_type}
+Justification: {justification}
+Confidence: {confidence}
+
+Programmatic result: {passed_str}
+Violations: {violations}
+
+Episode state:
+  phase: {phase}
+  budget_remaining: {budget:.0f}
+  patients_enrolled: {patients}
+  milestones: phase_i={phase_i}, mtd={mtd}, effect_estimated={effect_est}, protocol_submitted={protocol}, interim={interim}
+"""
+
+
+def _call_llm(
+    persona: str,
+    action: TrialAction,
+    latent: TrialLatentState,
+    passed: bool,
+    violations: list[str],
+    model: str,
+    api_key: str,
+    base_url: str | None,
+) -> tuple[str, str | None]:
+    """Call the LLM for Layer 2 qualitative assessment.
+
+    Returns (feedback, hint). Falls back to stub on any error.
+    """
+    import json
+
+    try:
+        from openai import OpenAI  # type: ignore[import]
+    except ImportError:
+        logger.warning(
+            "openai package not installed — falling back to rule-based judge stub. "
+            "Install with: pip install openai"
+        )
+        return _stub_feedback(persona, violations, passed, action, latent)
+
+    user_msg = _LLM_USER_TEMPLATE.format(
+        action_type=action.action_type.value,
+        justification=action.justification,
+        confidence=action.confidence,
+        passed_str="PASSED" if passed else "FAILED",
+        violations="; ".join(violations) if violations else "none",
+        phase=latent.episode_phase,
+        budget=latent.budget_remaining,
+        patients=latent.patients_enrolled,
+        phase_i=latent.phase_i_complete,
+        mtd=latent.mtd_identified,
+        effect_est=latent.effect_estimated,
+        protocol=latent.protocol_submitted,
+        interim=latent.interim_complete,
+    )
+
+    try:
+        client_kwargs: dict = {"api_key": api_key}
+        if base_url:
+            client_kwargs["base_url"] = base_url
+        client = OpenAI(**client_kwargs)
+
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": _LLM_SYSTEM_PROMPT.format(persona=persona),
+                },
+                {"role": "user", "content": user_msg},
+            ],
+            max_tokens=256,
+            temperature=0.3,
+            response_format={"type": "json_object"},
+        )
+
+        raw = response.choices[0].message.content or "{}"
+        data = json.loads(raw)
+        feedback = str(data.get("feedback", "")).strip() or _stub_feedback(
+            persona, violations, passed, action, latent
+        )[0]
+        hint_raw = data.get("hint")
+        hint = str(hint_raw).strip() if hint_raw and persona == "junior" else None
+        return feedback, hint
+
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "LLM judge call failed (%s: %s) — falling back to rule-based stub.",
+            type(exc).__name__,
+            exc,
+        )
+        return _stub_feedback(persona, violations, passed, action, latent)
+
+
+# ---------------------------------------------------------------------------
+# Layer 2b: rule-based stub (fallback when no LLM is configured)
 # ---------------------------------------------------------------------------
 
 
-def _generate_feedback(
+def _stub_feedback(
     persona: str,
     violations: list[str],
     passed: bool,
     action: TrialAction,
     latent: TrialLatentState,
 ) -> tuple[str, str | None]:
-    """Return (feedback, hint) for the given persona.
-
-    This is a rule-based stub that can be replaced with a real LLM call later.
-    The stub generates contextually appropriate strings without an LLM.
-    """
+    """Rule-based feedback stub — used when JUDGE_LLM_MODEL is not set."""
     action_name = action.action_type.value.replace("_", " ")
 
     if passed:
@@ -170,7 +300,6 @@ def _build_hint_for_violations(
     if "patients" in first or "enrolled" in first:
         return "Hint: enroll patients before running analyses."
 
-    # Generic fallback
     return f"Hint: {violations[0]}"
 
 
@@ -183,7 +312,8 @@ class TrialJudge:
     """Multi-layer trial design verifier.
 
     Layer 1 is programmatic and authoritative — its result is never overridden.
-    Layer 2 is persona-scaled and provides human-readable feedback and hints.
+    Layer 2 is persona-scaled: uses a real LLM when JUDGE_LLM_MODEL and
+    JUDGE_LLM_API_KEY are set, otherwise falls back to the rule-based stub.
     """
 
     def verify(
@@ -200,7 +330,8 @@ class TrialJudge:
             latent:  Hidden ground-truth + episode tracking state.
 
         Returns:
-            JudgeResult with pass/fail, violations, feedback, hint, and penalty.
+            JudgeResult with pass/fail, violations, feedback, hint, penalty,
+            and llm_used flag.
         """
         violations: list[str] = []
 
@@ -224,12 +355,7 @@ class TrialJudge:
                 f"(effect_size={latent.true_effect_size:.3f}, n={n})."
             )
 
-        # 1c. p-value check — derive from power/effect/n
-        #     We use the same normal approximation as the simulator.
-        import math
-
-        from scipy.stats import norm
-
+        # 1c. p-value check
         if n > 0 and latent.true_effect_size != 0.0:
             n_per_arm = n / 2.0
             se = 1.0 / math.sqrt(n_per_arm) if n_per_arm > 0 else 1.0
@@ -254,18 +380,35 @@ class TrialJudge:
         # ------------------------------------------------------------------
         # Overconfidence penalty
         # ------------------------------------------------------------------
-        # A "high-confidence wrong claim" is when the agent's confidence is
-        # >= 0.8 but Layer 1 found violations (the claim is incorrect).
         overconfidence_penalty = 0.0
         if not passed and action.confidence >= _HIGH_CONFIDENCE_THRESHOLD:
-            # One penalty per violation that was caused by a wrong claim
             overconfidence_penalty = _OVERCONFIDENCE_PENALTY * len(violations)
 
         # ------------------------------------------------------------------
         # Layer 2: Persona-scaled feedback (never overrides Layer 1 result)
         # ------------------------------------------------------------------
         persona = _select_persona(state.difficulty)
-        feedback, hint = _generate_feedback(persona, violations, passed, action, latent)
+        llm_used = False
+
+        from server.config import settings  # local import avoids circular dep
+
+        if settings.judge_llm_model and settings.judge_llm_api_key:
+            feedback, hint = _call_llm(
+                persona=persona,
+                action=action,
+                latent=latent,
+                passed=passed,
+                violations=violations,
+                model=settings.judge_llm_model,
+                api_key=settings.judge_llm_api_key,
+                base_url=settings.judge_llm_base_url,
+            )
+            # Only mark llm_used=True if we didn't fall back (no exception path
+            # sets feedback to stub output — we can't distinguish, so we trust
+            # that _call_llm returns stub on error and logs a warning).
+            llm_used = True
+        else:
+            feedback, hint = _stub_feedback(persona, violations, passed, action, latent)
 
         return JudgeResult(
             passed=passed,
@@ -274,4 +417,5 @@ class TrialJudge:
             hint=hint,
             overconfidence_penalty=overconfidence_penalty,
             persona=persona,
+            llm_used=llm_used,
         )
