@@ -20,9 +20,7 @@ _HISTORY_PREREQUISITES: dict[ActionType, list[ActionType]] = {
 }
 
 
-def check_prerequisites(
-    action: TrialAction, latent: TrialLatentState
-) -> list[str]:
+def check_prerequisites(action: TrialAction, latent: TrialLatentState) -> list[str]:
     """Return a list of prerequisite violation strings for *action* given *latent*.
 
     Returns an empty list when all prerequisites are satisfied.

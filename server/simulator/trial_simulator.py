@@ -84,6 +84,7 @@ def simulate_trial(
         se = 1.0 / math.sqrt(n_per_arm)
         z_stat = observed_effect / se if se > 0 else 0.0
         from scipy.stats import norm
+
         p_value = float(2.0 * norm.sf(abs(z_stat)))
     else:
         p_value = 1.0
@@ -93,6 +94,7 @@ def simulate_trial(
 
     if n_per_arm > 0:
         from scipy.stats import norm as _norm
+
         z_95 = _norm.ppf(0.975)
         se = 1.0 / math.sqrt(n_per_arm)
         ci_low = observed_effect - z_95 * se
@@ -104,9 +106,7 @@ def simulate_trial(
         0.0,
         latent.site_variability if latent.site_variability > 0 else 0.01,
     )
-    adverse_event_rate = min(
-        max(latent.true_side_effect_rate + ae_noise, 0.0), 1.0
-    )
+    adverse_event_rate = min(max(latent.true_side_effect_rate + ae_noise, 0.0), 1.0)
 
     return TrialResult(
         p_value=p_value,

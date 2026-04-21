@@ -36,6 +36,11 @@ class NoiseModel:
         self._seed = seed
         self._rng: np.random.Generator = np.random.default_rng(seed)
 
+    @property
+    def rng(self) -> np.random.Generator:
+        """Public access to the seeded Generator."""
+        return self._rng
+
     def randomize(self, config: ScenarioConfig) -> ScenarioConfig:
         """Return a new ScenarioConfig with domain-randomized parameters.
 
