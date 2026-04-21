@@ -1,11 +1,12 @@
 """
 curriculum — Curriculum controller and scenario registry.
 
-Provides advance_curriculum, select_scenario, EpisodeMetrics, and the four
-initial ScenarioConfig instances (solid_tumor_chemo, autoimmune_biologic,
+Provides advance_curriculum, select_scenario, EpisodeMetrics, AdversarialDesigner,
+and the four initial ScenarioConfig instances (solid_tumor_chemo, autoimmune_biologic,
 cns_depression, rare_disease_orphan).
 """
 
+from server.curriculum.adversarial_designer import AdversarialDesigner
 from server.curriculum.controller import (
     EpisodeMetrics,
     advance_curriculum,
@@ -22,6 +23,7 @@ from server.curriculum.scenarios import (
 )
 
 __all__ = [
+    "AdversarialDesigner",
     "EpisodeMetrics",
     "advance_curriculum",
     "select_scenario",

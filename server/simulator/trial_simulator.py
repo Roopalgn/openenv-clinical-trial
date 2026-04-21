@@ -19,6 +19,7 @@ from server.simulator.power_calculator import calculate_power
 def simulate_trial(
     latent: TrialLatentState,
     action: TrialAction,
+    power_fn=None,
 ) -> TrialResult:
     """Simulate a trial step and return a TrialResult.
 
@@ -28,10 +29,15 @@ def simulate_trial(
     Args:
         latent: Hidden ground-truth + episode tracking state.
         action: The action taken by the agent.
+        power_fn: Optional callable with same signature as calculate_power.
+            If provided, used instead of the bare calculate_power function
+            (allows EpisodeManager to inject its cached version).
 
     Returns:
         A TrialResult reflecting the simulated outcome.
     """
+    if power_fn is None:
+        power_fn = calculate_power
     # --- Edge-case checks (requirements 15.2, 15.3, 15.4) ---
     if latent.budget_remaining <= 0:
         return TrialResult(
@@ -71,7 +77,7 @@ def simulate_trial(
     n = max(latent.patients_enrolled, 1)
     alpha = 0.05
 
-    power = calculate_power(effect_size, n, alpha)
+    power = power_fn(effect_size, n, alpha)
 
     noise = rng.gauss(
         0.0,
