@@ -1,6 +1,5 @@
-# Adaptive Difficulty Specification (G4)
+# Adaptive Difficulty Specification
 
-> **Inspired by:** KubeSRE's AdversarialDesigner that uses Claude to design incidents targeting agent weak spots. Bio Experiment's progressive noise amplification on mastered organisms. VRAM's dynamic capability thresholds. All winners: difficulty escalation is the primary mechanism for preventing reward plateau and demonstrating genuine improvement.
 
 ## Purpose
 
@@ -163,7 +162,7 @@ HARDENING_SCHEDULE = {
 
 ## 3. Weak-Spot Targeting
 
-> **Pattern from KubeSRE's AdversarialDesigner:** After mastery, the environment actively targets the agent's weakest capabilities rather than uniformly sampling scenarios.
+> **Pattern from AdversarialDesigner:** After mastery, the environment actively targets the agent's weakest capabilities rather than uniformly sampling scenarios.
 
 ### Failure Pattern Analysis
 
@@ -329,7 +328,6 @@ COMPOUND_CHALLENGES = {
 
 ## 5. Solvability Guarantee
 
-> **Pattern from KubeSRE:** Every generated incident is validated as having a valid resolution path before being served to the agent.
 
 Every hardened/compound scenario must pass a **solvability check** before the environment serves it:
 

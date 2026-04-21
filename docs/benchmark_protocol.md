@@ -1,6 +1,5 @@
 # Benchmark Protocol — Random & Scripted Baselines
 
-> **Inspired by:** KubeSRE's eval.py comparing `base_model` vs `trained_model` across scenarios. Bio Experiment's eval_compare.py with per-organism breakdowns. All winners: baseline metrics prove the environment is non-trivial AND the agent learned something. Without baselines, reward curves are meaningless.
 
 ## Purpose
 
@@ -305,7 +304,6 @@ Each evaluation run produces a JSON file:
 4. **Episode transcripts** — each run saves JSONL transcripts per episode for post-hoc analysis
 5. **Versioned environment** — lock the environment code version before running baselines (git commit hash in output)
 
-> **Winner precedent:** KubeSRE's eval.py used --seed for reproducible comparison. Bio Experiment logged per-episode transcripts. VRAM used deterministic evaluation suites.
 
 ---
 

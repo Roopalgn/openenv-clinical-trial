@@ -1,26 +1,44 @@
 # OpenEnv Clinical Trial Designer
 
+> **OpenEnv Hackathon — Theme #3.1: Professional Tasks (World Modeling)**
+
 ### Can a small LLM learn to design a clinical trial — from scratch?
 
-We gave a tiny language model a drug with an unknown effect, a budget, a deadline, and zero medical training. No textbook examples. No few-shot prompts. Just a PagerDuty-style alert: *"Design a Phase II trial for a novel EGFR inhibitor in non-small cell lung cancer."*
+We gave a 7B language model a drug with an unknown effect, a budget, a deadline, and zero medical training. No textbook examples. No few-shot prompts. Just a scenario: *"Design a Phase II trial for a novel EGFR inhibitor in non-small cell lung cancer."*
 
-Within 40 episodes, it learned to run dose escalation, read safety signals, identify the hidden responder subgroup (EGFR+ patients), calculate statistical power, and submit an FDA-compliant protocol. By episode 8, it was designing trials that barely reached significance. By episode 40, it was hitting p < 0.005 with 85% power.
+The model must discover the drug's true efficacy through dose escalation, identify a hidden responder subgroup (EGFR+ patients) from noisy Phase I data, calculate statistical power, navigate FDA compliance rules, and submit a protocol — all within a budget and time constraint it doesn't fully know.
 
-This is **OpenEnv Clinical Trial Designer** — an RL environment where an agent learns to design clinical trials that detect true drug effects under realistic constraints, using GRPO training against a simulator with hidden ground truth.
+**OpenEnv Clinical Trial Designer** is an RL environment where an LLM agent learns to design clinical trials that detect true drug effects under realistic constraints. The environment uses hidden ground truth, real statistical calculations (`scipy.stats`), and codified FDA rules — verification is entirely objective, no LLM judge required for the core success criterion.
 
-Built with [OpenEnv v0.2.1](https://github.com/meta-pytorch/OpenEnv/tree/v0.2.1) | Theme #3.1: Professional Tasks
+Built with [OpenEnv v0.2.1](https://github.com/meta-pytorch/OpenEnv) | [Architecture](ARCHITECTURE.md) | [Live Dashboard](dashboard.html)
 
-## Motivation
+## Why Clinical Trial Design?
 
-Clinical trial design is a high-stakes professional task where:
+Clinical trials are one of the highest-stakes professional tasks in the world:
 
-- **Mistakes are expensive**: A poorly designed trial wastes $100M+ and years of time
-- **Verification is objective**: Either the trial detects the true effect (p < 0.05 with power ≥ 0.80) or it doesn't — no LLM judge needed
-- **The world is partially observable**: True effect size, responder subgroup, safety profile, and dose-response curve are all hidden from the agent
-- **Planning is long-horizon**: A full trial spans 55-100 steps across Phase I → Phase II → regulatory → analysis
-- **Real rules exist**: FDA ICH E9 guidelines are codified as hard constraints — not suggestions
+- **$2.6 billion** average cost per approved drug, with 90% failure rate in Phase II
+- **Verification is objective**: either the trial detects the true effect (p < 0.05 with power ≥ 0.80) or it doesn't — no subjective judgment needed
+- **Partially observable**: true effect size, responder subgroup, safety profile, and dose-response curve are all hidden from the agent
+- **Long-horizon planning**: a full trial spans 55–100 steps across Phase I → Phase II → regulatory → analysis
+- **Real constraints**: FDA ICH E9 guidelines are codified as hard rules, not suggestions
+- **Domain randomization**: budget ±30%, time ±20%, dropout ±15%, placebo response ±20% — the agent cannot memorize solutions
 
-No existing OpenEnv environment covers clinical trial design. This combines real statistical tools (scipy.stats), real regulatory rules (FDA compliance engine), and a trial simulator with hidden ground truth — the same pattern that won the previous hackathon.
+No existing OpenEnv environment covers clinical trial design. This combines real statistical tools, real regulatory rules, and a trial simulator with hidden ground truth — a partially observable professional world where shortcuts don't work.
+
+## Key Highlights
+
+| Feature | Implementation |
+|---------|---------------|
+| **Hidden Ground Truth** | `TrialLatentState` with true effect size, responder subgroup, safety profile — agent never sees these |
+| **Objective Verification** | `scipy.stats` power calculation, FDA rule engine, trial simulation — no LLM judge for core metrics |
+| **19-Action Space** | 5 categories: design, Phase I, Phase II, regulatory, analysis |
+| **10-Phase Clinical Workflow** | Phase-order bonus (+0.2) and skip penalty (-0.3) enforce realistic trial progression |
+| **15-Component Reward** | 8 per-step + 7 terminal components, each independently verifiable |
+| **5-Tier Adaptive Curriculum** | Per-scenario mastery tracking, weak-spot targeting, adversarial compound challenges at expert tier |
+| **Domain Randomization** | Budget ±30%, time ±20%, dropout ±15%, placebo ±20% via seeded `NoiseModel` |
+| **Multi-Layer Judge** | Programmatic ground-truth (authoritative) + rule engine + persona-scaled LLM judge (junior→principal) |
+| **Full Training Pipeline** | GRPO via TRL 0.29.0 + vLLM colocate + LoRA (rank 16, alpha 32) on Qwen2.5-7B |
+| **249 Tests** | Full test coverage across all components, ruff lint clean |
 
 ## The Environment
 
@@ -141,63 +159,98 @@ python plot_rewards.py
 
 ## Documentation
 
-**Design & Specs:**
-- [Architecture & System Diagram](ARCHITECTURE.md)
-- [Problem Statement & Judging Alignment](docs/problem_statement.md)
-- [Reward Decomposition Spec](docs/reward_spec.md)
-- [Scenario Cards (4 scenarios with ground truth)](docs/scenario_cards.md)
-- [Phase Workflow & Scoring](docs/phase_workflow.md)
-- [Curriculum Progression Policy](docs/curriculum_policy.md)
-- [Adaptive Difficulty (G4)](docs/adaptive_difficulty_spec.md)
-- [Multi-Layer Verification Spec](docs/verification_spec.md)
-
-**Training & Evaluation:**
-- [Training Runbook (GRPO config + procedure)](docs/training_runbook.md)
-- [Evaluation Report Template](docs/evaluation_report_template.md)
-- [Benchmark Protocol (baselines)](docs/benchmark_protocol.md)
-- [Dashboard Metrics Format](docs/dashboard_metrics.md)
-
-**Storytelling & Pitch:**
-- [Demo Story Arc (3-min pitch)](docs/story_arc.md)
-- [Pitch Notes (judge-aligned)](docs/pitch_notes.md)
-- [Storytelling Assets (before/after episodes)](docs/storytelling_assets.md)
-- [HF Mini-Blog Draft](docs/mini_blog_draft.md)
-- [Evaluation Criteria & Metrics](docs/evaluation_criteria.md)
-
-**Reference:**
-- [Detailed Roadmap](docs/ROADMAP.md)
-- [Winner Comparison & Intelligence](docs/comparison.md)
-- [Knowledge Base](docs/KnowledgeBase.md)
-- [Milestone Map](docs/milestone_map.md)
+- [Architecture & System Diagram](ARCHITECTURE.md) — full system design, data models, deployment config, training setup
+- [Problem Statement](docs/problem_statement.md) — motivation and judging alignment
+- [Reward Decomposition Spec](docs/reward_spec.md) — 8 per-step + 7 terminal reward components with formulas
+- [Scenario Cards](docs/scenario_cards.md) — 4 clinical scenarios with hidden ground truth and challenge descriptions
+- [Phase Workflow & Scoring](docs/phase_workflow.md) — 10-phase clinical workflow with phase-order bonus/penalty
+- [Curriculum Progression Policy](docs/curriculum_policy.md) — 5-tier adaptive curriculum with mastery tracking
+- [Adaptive Difficulty Spec](docs/adaptive_difficulty_spec.md) — weak-spot targeting and compound challenge generation
+- [Multi-Layer Verification Spec](docs/verification_spec.md) — programmatic + rule engine + optional LLM judge
+- [Evaluation Criteria & Metrics](docs/evaluation_criteria.md) — success rate, reward trends, capability radar
+- [Benchmark Protocol](docs/benchmark_protocol.md) — random and scripted baseline methodology
+- [Dashboard Metrics](docs/dashboard_metrics.md) — 6-panel live dashboard specification
+- [Mini-Blog Draft](docs/mini_blog_draft.md) — HuggingFace blog post (published version on HF)
 
 ## Live Dashboard
 
-Open `dashboard.html` in a browser for a 6-panel demo dashboard with simulated training data:
-- Episode replay with phase-colored timeline
-- Reward curves with rolling average and tier markers
-- Curriculum progression bar
-- Per-scenario success breakdown
-- Agent capability radar (trained vs baseline)
-- Action log
+Open `dashboard.html` in a browser or visit the [HF Space](https://huggingface.co/spaces/Roopalgn/clinical-trial-designer) for a 6-panel interactive dashboard:
 
-Connects to the environment server's WebSocket for live updates during training.
+- **Episode Replay** — step-by-step walkthrough with phase-colored timeline
+- **Reward Curves** — per-episode scatter + rolling average with tier transition markers
+- **Curriculum Progression** — 5-tier bar with per-tier episode counts and success rates
+- **Scenario Breakdown** — per-scenario success rate, hardening level, and average reward
+- **Agent Capability Radar** — trained agent vs random baseline across 6 clinical competencies
+- **Action Log** — real-time monospace log of agent decisions
+
+Connects to the environment server's WebSocket for live updates during training. Falls back to realistic demo data when no backend is connected.
 
 ## Team
 
-- **Roopal Guha Neogi** — Environment design, reward engineering, docs, storytelling
-- **Suyash Kumar** — Environment implementation, training pipeline, evaluation scripts
+- **Roopal Guha Neogi** — Environment design, reward engineering, documentation
+- **Suyash Kumar** — Environment implementation, training pipeline, evaluation
 
-Roadmap and push split: see `docs/ROADMAP.md`.
-Merge to `main` only after both teammates approve checklist pass.
+## Project Structure
 
-## Expected Baseline Scores
+```
+openenv-clinical-trial/
+├── server/                          # OpenEnv environment server
+│   ├── app.py                       # FastAPI endpoints: /reset, /step, /state, /schema, /ws, /ping
+│   ├── environment.py               # Core env loop: reset → step → reward → done
+│   ├── episode_manager.py           # Episode lifecycle orchestration
+│   ├── simulator/                   # Trial simulation engine
+│   │   ├── trial_simulator.py       # Run trial against hidden ground truth
+│   │   ├── transition_engine.py     # Hidden state mutation
+│   │   ├── output_generator.py      # Noisy observation generation
+│   │   └── power_calculator.py      # scipy.stats power calculations
+│   ├── rules/                       # FDA compliance engine
+│   │   ├── fda_rules.py             # ICH E9 hard constraints
+│   │   └── prerequisite_rules.py    # Phase prerequisite checks
+│   ├── reward/                      # Decomposed reward system
+│   │   ├── reward_computer.py       # 8 per-step + 7 terminal components
+│   │   └── shaping.py              # Potential-based reward shaping
+│   ├── curriculum/                  # Adaptive curriculum system
+│   │   ├── controller.py            # 5-tier progression + mastery tracking
+│   │   ├── scenarios.py             # 4 scenario configs with hidden truth
+│   │   └── adversarial_designer.py  # Expert-tier compound challenges
+│   ├── noise_model.py              # Seeded domain randomization
+│   ├── phase_detector.py           # Clinical workflow phase classification
+│   ├── judge.py                    # Multi-layer verification
+│   └── logger.py                   # Episode JSONL + reward CSV logging
+├── models.py                       # Pydantic data models (TrialAction, TrialObservation, etc.)
+├── train.py                        # GRPO training script (TRL 0.29.0 + vLLM colocate)
+├── eval_compare.py                 # Base vs trained model evaluation
+├── plot_rewards.py                 # Reward curve visualization
+├── train_colab.ipynb               # Google Colab training notebook
+├── dashboard.html                  # 6-panel interactive dashboard
+├── Dockerfile                      # HF Spaces deployment
+├── openenv.yaml                    # OpenEnv v0.2.1 configuration
+├── ARCHITECTURE.md                 # Detailed system architecture
+├── tests/                          # 249 tests (13 test files)
+└── docs/                           # Design specifications
+```
 
-> Based on scripted policy evaluation at Warmup tier (50 episodes, seed 42). Actual training results will be added onsite April 25–26.
+## Grounding & References
+
+This environment is grounded in real clinical trial methodology, not toy heuristics:
+
+- **Statistical Engine**: `scipy.stats` for power calculations, sample size estimation, and hypothesis testing — the same math used in actual trial design software
+- **FDA Compliance**: ICH E9 guidelines codified as a deterministic rule engine with 6+ hard constraints
+- **rpact** (R package, LGPL-3): FDA-validated confirmatory adaptive clinical trial design and analysis, with 39,000+ unit tests. Our power calculations and group-sequential boundaries are calibrated against rpact's published validation tables
+- **Berry et al. (2010)** *Bayesian Adaptive Methods for Clinical Trials* — Bayesian adaptive design methodology underlying our interim analysis and sample size re-estimation logic
+- **Wassmer & Brannath (2016)** *Group Sequential and Confirmatory Adaptive Designs in Clinical Trials* — alpha-spending functions and group-sequential boundaries referenced in our FDA rule engine
+- **Narvekar et al. (2020)** *Curriculum Learning for Reinforcement Learning Domains: A Framework and Survey* (JMLR) — curriculum design methodology for our 5-tier progression system
+
+## Baseline Scores
+
+> Scripted policy evaluation at Warmup tier (50 episodes, seed 42). Training results to be added after GRPO training on H100.
 
 | Policy | Success Rate | Avg Reward | Avg Steps | Subgroup Found | Power ≥ 0.80 |
 |--------|-------------|-----------|-----------|---------------|-------------|
 | Random | ~5% | -1.5 ± 0.8 | 95 (timeout) | 2% | 3% |
 | Scripted | ~40% | +2.8 ± 3.2 | 22 ± 6 | 0% (no enrichment) | 45% |
+
+The environment is non-trivial: a random policy almost never succeeds. Even a scripted policy that follows the correct phase order only achieves 40% success rate because it cannot adapt to hidden parameters. The gap between scripted and trained demonstrates what RL adds.
 | Trained (expected) | ~75% | +8.5 ± 3.0 | 18 ± 5 | 60%+ | 80%+ |
 
 **Key contrasts for the pitch:**
@@ -205,12 +258,12 @@ Merge to `main` only after both teammates approve checklist pass.
 - Scripted agent follows correct workflow but never discovers the hidden EGFR+ subgroup
 - Trained agent learns to enrich for subgroups, achieving 3× the reward with fewer steps
 
-## On-Par-with-Winners Checklist
+## Quality Checklist
 
-- Real consequences and hidden state.
-- Multi-layer verification and anti-reward-hacking safeguards.
-- Curriculum progression with mastery thresholds.
-- Interpretable reward components.
-- Clear storytelling with evidence of learning progression.
-- Adaptive difficulty with weak-spot targeting (G4).
-- Live demo dashboard for 3-minute pitch (G14).
+- Real consequences and hidden state
+- Multi-layer verification and anti-reward-hacking safeguards
+- Curriculum progression with mastery thresholds
+- Interpretable reward components
+- Clear storytelling with evidence of learning progression
+- Adaptive difficulty with weak-spot targeting
+- Live demo dashboard for 3-minute pitch
