@@ -23,6 +23,7 @@ from models import (
     TrialObservation,
     TrialState,
 )
+from server.config import settings
 from server.curriculum.controller import select_scenario
 from server.judge import TrialJudge
 from server.logger import EpisodeLogger
@@ -67,7 +68,7 @@ class EpisodeManager:
         self._scenario: ScenarioConfig | None = None
         self._phase_history: list[str] = []
         self._noise_model: NoiseModel | None = None
-        self._curriculum_tier: int = 0
+        self._curriculum_tier: int = settings.curriculum_start_tier
         self._transition_engine: TransitionEngine = TransitionEngine()
         self._judge: TrialJudge = TrialJudge()
 
@@ -81,7 +82,12 @@ class EpisodeManager:
         Seeded resets are reproducible: same seed → same scenario selection
         and initial TrialLatentState (Req 8.5, 9.4).
         """
-        resolved_seed = seed if seed is not None else random.randint(0, 2**31 - 1)
+        if seed is not None:
+            resolved_seed = seed
+        elif settings.default_seed is not None:
+            resolved_seed = settings.default_seed
+        else:
+            resolved_seed = random.randint(0, 2**31 - 1)
         self._episode_id = str(uuid.uuid4())
 
         # Step 1: Select scenario via CurriculumController (Req 8.3, 8.5)

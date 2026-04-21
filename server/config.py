@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     port: int = 8000
     curriculum_start_tier: int = 0
 
+    # Optional LLM judge (Layer 2). When set, TrialJudge uses a real LLM for
+    # qualitative workflow scoring. Falls back to rule-based stub when absent.
+    judge_llm_model: str | None = None   # e.g. "gpt-4o-mini", "claude-3-haiku-20240307"
+    judge_llm_api_key: str | None = None  # OpenAI or Anthropic API key
+    judge_llm_base_url: str | None = None  # optional: custom base URL (e.g. local vLLM)
+
 
 def get_settings() -> Settings:
     """Load and return Settings, exiting with code 1 on validation failure."""

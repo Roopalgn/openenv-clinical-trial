@@ -4,12 +4,15 @@ Tests for server/judge.py — TrialJudge multi-layer verification.
 Covers:
   - Layer 1 programmatic checks (power, p-value, FDA compliance, budget)
   - Layer 2 persona selection (junior/senior/principal)
+  - Layer 2 LLM path (mocked) and stub fallback
   - Overconfidence penalty
   - Hint generation for junior persona
   - No unhandled exceptions on any valid input (req 10.4)
 """
 
 from __future__ import annotations
+
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -323,6 +326,69 @@ def test_judge_result_is_pydantic_model():
     )
     assert result.passed is True
     assert result.persona == "senior"
+    assert result.llm_used is False  # default
+
+
+# ---------------------------------------------------------------------------
+# Layer 2: llm_used flag — stub path
+# ---------------------------------------------------------------------------
+
+
+def test_llm_used_false_when_no_llm_configured():
+    """llm_used is False when JUDGE_LLM_MODEL is not set (stub path)."""
+    judge = TrialJudge()
+    latent = _make_latent(budget_remaining=0.0)
+    result = judge.verify(_make_action(), _make_state(), latent)
+    assert result.llm_used is False
+
+
+# ---------------------------------------------------------------------------
+# Layer 2: LLM path (mocked)
+# ---------------------------------------------------------------------------
+
+
+def test_llm_path_used_when_configured():
+    """When JUDGE_LLM_MODEL and JUDGE_LLM_API_KEY are set, llm_used=True."""
+    judge = TrialJudge()
+    latent = _make_latent(budget_remaining=0.0)
+
+    # Mock the OpenAI client response
+    mock_choice = MagicMock()
+    mock_choice.message.content = '{"feedback": "LLM feedback text.", "hint": "LLM hint."}'
+    mock_response = MagicMock()
+    mock_response.choices = [mock_choice]
+
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.return_value = mock_response
+
+    with patch("server.config.settings") as mock_settings, \
+         patch("server.judge.OpenAI", return_value=mock_client, create=True):
+        mock_settings.judge_llm_model = "gpt-4o-mini"
+        mock_settings.judge_llm_api_key = "sk-test"
+        mock_settings.judge_llm_base_url = None
+
+        # Patch the import inside _call_llm
+        with patch.dict("sys.modules", {"openai": MagicMock(OpenAI=lambda **kw: mock_client)}):
+            result = judge.verify(_make_action(), _make_state(difficulty=0.2), latent)
+
+    assert result.llm_used is True
+
+
+def test_llm_fallback_to_stub_on_import_error():
+    """When openai is not importable, falls back to stub without raising."""
+    judge = TrialJudge()
+    latent = _make_latent(budget_remaining=0.0)
+
+    with patch("server.config.settings") as mock_settings, \
+         patch.dict("sys.modules", {"openai": None}):
+        mock_settings.judge_llm_model = "gpt-4o-mini"
+        mock_settings.judge_llm_api_key = "sk-test"
+        mock_settings.judge_llm_base_url = None
+
+        # Should not raise — falls back to stub
+        result = judge.verify(_make_action(), _make_state(), latent)
+        assert isinstance(result, JudgeResult)
+        assert result.feedback  # stub still produces feedback
 
 
 # ---------------------------------------------------------------------------
