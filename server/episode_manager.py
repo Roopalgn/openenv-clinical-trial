@@ -25,10 +25,14 @@ from models import (
 )
 from server.config import settings
 from server.curriculum.adversarial_designer import (
-    AdversarialDesigner,
     EXPERT_DIFFICULTY_THRESHOLD,
+    AdversarialDesigner,
 )
-from server.curriculum.controller import advance_curriculum, select_scenario, EpisodeMetrics
+from server.curriculum.controller import (
+    EpisodeMetrics,
+    advance_curriculum,
+    select_scenario,
+)
 from server.judge import TrialJudge
 from server.logger import EpisodeLogger
 from server.noise_model import NoiseModel

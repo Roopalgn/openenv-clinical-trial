@@ -102,7 +102,10 @@ def _info_gain_reward(action: TrialAction, result: TrialResult) -> float:
     return _INFO_GAIN_BASE * result.power
 
 
-def _efficiency_reward(latent: TrialLatentState, initial_budget: float = 1_000_000.0) -> float:
+def _efficiency_reward(
+    latent: TrialLatentState,
+    initial_budget: float = 1_000_000.0,
+) -> float:
     """Reward proportional to remaining budget (encourages frugality)."""
     if initial_budget <= 0:
         return 0.0
