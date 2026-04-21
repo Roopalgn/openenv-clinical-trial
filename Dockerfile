@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1
-# NOTE: ghcr.io/meta-pytorch/openenv-base:0.2.1 is not publicly available.
-# Using python:3.11-slim as the fallback base image per task 32 instructions.
+# NOTE: ghcr.io/meta-pytorch/openenv-base:0.2.1 is the intended base image per
+# the OpenEnv hackathon spec and ROADMAP. It is not yet publicly available on
+# ghcr.io. Using python:3.11-slim as the functional equivalent until the image
+# is published. Switch FROM line to openenv-base once available.
 
 FROM python:3.11-slim
 

@@ -24,12 +24,21 @@ from models import (
     TrialState,
 )
 from server.config import settings
-from server.curriculum.controller import select_scenario
+from server.curriculum.adversarial_designer import (
+    EXPERT_DIFFICULTY_THRESHOLD,
+    AdversarialDesigner,
+)
+from server.curriculum.controller import (
+    EpisodeMetrics,
+    advance_curriculum,
+    select_scenario,
+)
 from server.judge import TrialJudge
 from server.logger import EpisodeLogger
 from server.noise_model import NoiseModel
 from server.phase_detector import detect_phase
 from server.reward.reward_computer import compute_reward
+from server.reward.shaping import shaping_bonus
 from server.rules.fda_rules import check_fda_compliance
 from server.simulator.output_generator import OutputGenerator
 from server.simulator.power_calculator import calculate_power
@@ -70,6 +79,8 @@ class EpisodeManager:
         self._phase_history: list[str] = []
         self._noise_model: NoiseModel | None = None
         self._curriculum_tier: int = settings.curriculum_start_tier
+        self._episode_history: list[bool] = []  # rolling success history for curriculum
+        self._adversarial_designer: AdversarialDesigner = AdversarialDesigner()
         self._transition_engine: TransitionEngine = TransitionEngine()
         self._judge: TrialJudge = TrialJudge()
 
@@ -94,7 +105,20 @@ class EpisodeManager:
         # Step 1: Select scenario via CurriculumController (Req 8.3, 8.5)
         # Use a seeded RNG so scenario selection is reproducible for same seed.
         scenario_rng = np.random.default_rng(resolved_seed)
-        scenario = select_scenario(self._curriculum_tier, scenario_rng)
+
+        # At expert tier (difficulty > 0.80), use AdversarialDesigner to generate
+        # a targeted scenario based on the agent's tracked weak spots.
+        current_difficulty = self._curriculum_tier / 4.0
+        if current_difficulty > EXPERT_DIFFICULTY_THRESHOLD and self._episode_history:
+            weak_spots = self._adversarial_designer.analyze_failures(
+                [
+                    {"success": s, "true_effect_size": None, "dropout_rate": None}
+                    for s in self._episode_history
+                ]
+            )
+            scenario = self._adversarial_designer.generate_scenario(weak_spots)
+        else:
+            scenario = select_scenario(self._curriculum_tier, scenario_rng)
         self._scenario = scenario
 
         # Step 2: Apply domain randomization via NoiseModel (Req 9.1, 9.2)
@@ -235,6 +259,7 @@ class EpisodeManager:
                 return obs, reward, done, info
 
             # Step 2: TransitionEngine mutates TrialLatentState
+            latent_before = self._latent  # snapshot for shaping bonus (Issue #1)
             updated_latent = self._transition_engine.apply_transition(
                 self._latent, action
             )
@@ -255,6 +280,18 @@ class EpisodeManager:
                 latent=self._latent,
                 result=result,
                 phase_history=self._phase_history[:-1],  # history before this step
+                initial_budget=float(self._scenario.budget_usd),
+            )
+
+            # Add potential-based shaping bonus: γ·(φ(s') − φ(s))
+            initial_budget = float(self._scenario.budget_usd)
+            shaped_bonus = shaping_bonus(
+                latent=latent_before,
+                next_latent=self._latent,
+                initial_budget=initial_budget,
+            )
+            reward = reward.model_copy(
+                update={"r_ordering": reward.r_ordering + shaped_bonus}
             )
 
             # Step 6: TrialJudge verification (hint + overconfidence penalty)
@@ -323,6 +360,18 @@ class EpisodeManager:
                     terminal_outcome=(
                         "success" if self._latent.trial_complete else "timeout"
                     ),
+                )
+
+            # Advance curriculum tier at episode end (Issue #2)
+            if done:
+                episode_success = self._latent.trial_complete
+                self._episode_history.append(episode_success)
+                metrics = EpisodeMetrics(
+                    success=episode_success,
+                    episode_history=self._episode_history,
+                )
+                self._curriculum_tier = advance_curriculum(
+                    self._curriculum_tier, metrics
                 )
 
             info = {
