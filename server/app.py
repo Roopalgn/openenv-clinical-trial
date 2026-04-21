@@ -12,17 +12,45 @@ Routes:
 
 from __future__ import annotations
 
+import logging
+import traceback
 from typing import Any
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from models import TrialAction, TrialObservation, TrialState
 from server.config import settings
+from server.dashboard import router as dashboard_router
 from server.episode_manager import EpisodeManager
 
+logger = logging.getLogger(__name__)
+
 app = FastAPI(title="Clinical Trial Designer Environment")
+app.include_router(dashboard_router)
+
+
+# ---------------------------------------------------------------------------
+# Global exception handler
+# ---------------------------------------------------------------------------
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Catch all unhandled exceptions, log full stack trace, return 500 JSON."""
+    logger.error(
+        "Unhandled exception on %s %s\n%s",
+        request.method,
+        request.url.path,
+        traceback.format_exc(),
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "error": str(exc)},
+    )
+
 
 _manager = EpisodeManager()
 

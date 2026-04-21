@@ -34,6 +34,7 @@ from server.rules.fda_rules import check_fda_compliance
 from server.simulator.output_generator import OutputGenerator
 from server.simulator.transition_engine import TransitionEngine
 from server.simulator.trial_simulator import simulate_trial
+from server.simulator.power_calculator import calculate_power
 
 _MAX_STEPS = 100
 
@@ -244,7 +245,7 @@ class EpisodeManager:
             self._phase_history = self._phase_history + [phase_name]
 
             # Step 4: Simulate trial result for reward computation
-            result = simulate_trial(self._latent, action)
+            result = simulate_trial(self._latent, action, power_fn=self.cached_calculate_power)
 
             # Step 5: Compute reward (all 8 components)
             reward = compute_reward(
@@ -419,6 +420,19 @@ class EpisodeManager:
 
     def _clear_cache(self) -> None:
         self._power_cache.clear()
+
+    def cached_calculate_power(
+        self, effect_size: float, n: int, alpha: float = 0.05
+    ) -> float:
+        """Return cached power; compute and store on first call for this key.
+
+        Satisfies Req 14.1 and 14.2: results are cached by (effect_size, n, alpha)
+        within a single episode and reused without recomputation on subsequent calls.
+        """
+        key = (effect_size, n, alpha)
+        if key not in self._power_cache:
+            self._power_cache[key] = calculate_power(effect_size, n, alpha)
+        return self._power_cache[key]
 
     def _state_from_latent(
         self, latent: TrialLatentState, scenario: ScenarioConfig
