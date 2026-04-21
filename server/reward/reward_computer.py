@@ -37,6 +37,7 @@ def compute_reward(
     latent: TrialLatentState,
     result: TrialResult,
     phase_history: list[str] | None = None,
+    initial_budget: float = 1_000_000.0,
 ) -> RewardBreakdown:
     """Compute all eight reward components for a single step.
 
@@ -48,6 +49,9 @@ def compute_reward(
         latent: Hidden ground-truth + episode tracking state.
         result: The simulated trial result.
         phase_history: List of phase names from previous steps (for r_ordering).
+        initial_budget: The scenario's starting budget (used for efficiency reward).
+            Defaults to 1_000_000 for backwards compatibility but should be set
+            to the scenario's actual budget_usd.
 
     Returns:
         A RewardBreakdown with all eight keys populated.
@@ -60,7 +64,7 @@ def compute_reward(
     )
     r_ordering = compute_phase_ordering_reward(action, phase_history or [])
     r_info_gain = _info_gain_reward(action, result)
-    r_efficiency = _efficiency_reward(latent)
+    r_efficiency = _efficiency_reward(latent, initial_budget)
     r_novelty = _novelty_reward(action, latent)
     r_terminal_success = _terminal_success_reward(latent, result)
     r_terminal_calibration = _terminal_calibration_reward(latent, result)
@@ -98,9 +102,8 @@ def _info_gain_reward(action: TrialAction, result: TrialResult) -> float:
     return _INFO_GAIN_BASE * result.power
 
 
-def _efficiency_reward(latent: TrialLatentState) -> float:
+def _efficiency_reward(latent: TrialLatentState, initial_budget: float = 1_000_000.0) -> float:
     """Reward proportional to remaining budget (encourages frugality)."""
-    initial_budget = 1_000_000.0
     if initial_budget <= 0:
         return 0.0
     budget_fraction = min(max(latent.budget_remaining / initial_budget, 0.0), 1.0)
