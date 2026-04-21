@@ -100,6 +100,7 @@ class TrialLatentState(BaseModel):
     protocol_submitted: bool
     interim_complete: bool
     trial_complete: bool
+    adverse_events: int  # cumulative count of recorded adverse events
     # Episode tracking (used by rule engine and phase detector)
     episode_phase: str
     action_history: list[str]

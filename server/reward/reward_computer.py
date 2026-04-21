@@ -18,6 +18,7 @@ from models import (
     TrialLatentState,
     TrialResult,
 )
+from server.phase_detector import compute_phase_ordering_reward
 from server.rules.fda_rules import check_fda_compliance
 
 # Reward magnitude constants
@@ -29,13 +30,13 @@ _TERMINAL_CALIBRATION = 5.0
 _INFO_GAIN_BASE = 0.5
 _EFFICIENCY_SCALE = 2.0
 _NOVELTY_BASE = 0.2
-_ORDERING_BONUS = 0.2
 
 
 def compute_reward(
     action: TrialAction,
     latent: TrialLatentState,
     result: TrialResult,
+    phase_history: list[str] | None = None,
 ) -> RewardBreakdown:
     """Compute all eight reward components for a single step.
 
@@ -46,6 +47,7 @@ def compute_reward(
         action: The agent's action.
         latent: Hidden ground-truth + episode tracking state.
         result: The simulated trial result.
+        phase_history: List of phase names from previous steps (for r_ordering).
 
     Returns:
         A RewardBreakdown with all eight keys populated.
@@ -54,11 +56,9 @@ def compute_reward(
 
     r_validity = _VALIDITY_VALID if compliance.valid else _VALIDITY_INVALID
     r_penalty = (
-        _PENALTY_INVALID * len(compliance.violations)
-        if not compliance.valid
-        else 0.0
+        _PENALTY_INVALID * len(compliance.violations) if not compliance.valid else 0.0
     )
-    r_ordering = _ordering_reward(action, latent)
+    r_ordering = compute_phase_ordering_reward(action, phase_history or [])
     r_info_gain = _info_gain_reward(action, result)
     r_efficiency = _efficiency_reward(latent)
     r_novelty = _novelty_reward(action, latent)
@@ -81,18 +81,11 @@ def compute_reward(
 # Component helpers
 # ---------------------------------------------------------------------------
 
-def _ordering_reward(action: TrialAction, latent: TrialLatentState) -> float:
-    """Bonus for actions that match the expected clinical workflow phase."""
-    from server.rules.fda_rules import TRANSITION_TABLE
-    permitted = TRANSITION_TABLE.get(latent.episode_phase, set())
-    if action.action_type in permitted:
-        return _ORDERING_BONUS
-    return 0.0
-
 
 def _info_gain_reward(action: TrialAction, result: TrialResult) -> float:
     """Reward for information-gathering actions that produce useful results."""
     from models import ActionType
+
     info_actions = {
         ActionType.ESTIMATE_EFFECT_SIZE,
         ActionType.OBSERVE_SAFETY_SIGNAL,
@@ -110,9 +103,7 @@ def _efficiency_reward(latent: TrialLatentState) -> float:
     initial_budget = 1_000_000.0
     if initial_budget <= 0:
         return 0.0
-    budget_fraction = min(
-        max(latent.budget_remaining / initial_budget, 0.0), 1.0
-    )
+    budget_fraction = min(max(latent.budget_remaining / initial_budget, 0.0), 1.0)
     return _EFFICIENCY_SCALE * budget_fraction
 
 
@@ -123,9 +114,7 @@ def _novelty_reward(action: TrialAction, latent: TrialLatentState) -> float:
     return 0.0
 
 
-def _terminal_success_reward(
-    latent: TrialLatentState, result: TrialResult
-) -> float:
+def _terminal_success_reward(latent: TrialLatentState, result: TrialResult) -> float:
     """Positive reward when the episode ends with a successful trial (req 6.4)."""
     if latent.trial_complete and result.success and result.failure_reason is None:
         return _TERMINAL_SUCCESS
@@ -150,6 +139,6 @@ def _terminal_calibration_reward(
     centre_error = abs(ci_centre - true_effect)
     calibration_score = max(0.0, 1.0 - centre_error)
     width_penalty = min(ci_width, 1.0)
-    calibration_score *= (1.0 - width_penalty * 0.5)
+    calibration_score *= 1.0 - width_penalty * 0.5
 
     return _TERMINAL_CALIBRATION * calibration_score

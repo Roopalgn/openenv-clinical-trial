@@ -33,17 +33,13 @@ def manager() -> EpisodeManager:
 class TestInvalidActionReturnsNegativeRValidity:
     """Requirement 10.1: invalid actions → negative r_validity, latent unchanged."""
 
-    def test_invalid_action_r_validity_negative(
-        self, manager: EpisodeManager
-    ) -> None:
+    def test_invalid_action_r_validity_negative(self, manager: EpisodeManager) -> None:
         # SUBMIT_TO_FDA_REVIEW not permitted in literature_review phase
         action = _make_action(ActionType.SUBMIT_TO_FDA_REVIEW)
         _, reward, _, _ = manager.step(action)
         assert reward.r_validity < 0, "r_validity must be negative for invalid action"
 
-    def test_invalid_action_state_unchanged(
-        self, manager: EpisodeManager
-    ) -> None:
+    def test_invalid_action_state_unchanged(self, manager: EpisodeManager) -> None:
         action = _make_action(ActionType.SUBMIT_TO_FDA_REVIEW)
         history_before = list(manager._latent.action_history)
         step_before = len(history_before)
@@ -62,9 +58,7 @@ class TestInvalidActionReturnsNegativeRValidity:
         assert len(obs.rule_violations) > 0
         assert len(info["violations"]) > 0
 
-    def test_invalid_action_done_is_false(
-        self, manager: EpisodeManager
-    ) -> None:
+    def test_invalid_action_done_is_false(self, manager: EpisodeManager) -> None:
         action = _make_action(ActionType.SUBMIT_TO_FDA_REVIEW)
         _, _, done, _ = manager.step(action)
         assert done is False
@@ -108,9 +102,7 @@ class TestNoUnhandledExceptions:
         with pytest.raises(RuntimeError, match="No active episode"):
             em.step(action)
 
-    def test_multiple_invalid_steps_do_not_raise(
-        self, manager: EpisodeManager
-    ) -> None:
+    def test_multiple_invalid_steps_do_not_raise(self, manager: EpisodeManager) -> None:
         action = _make_action(ActionType.SUBMIT_TO_FDA_REVIEW)
         for _ in range(5):
             _, reward, _, _ = manager.step(action)

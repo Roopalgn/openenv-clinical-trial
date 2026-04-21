@@ -10,36 +10,43 @@ from __future__ import annotations
 
 import random
 import uuid
+from datetime import datetime, timezone
+
+import numpy as np
 
 from models import (
+    EpisodeTranscript,
     RewardBreakdown,
     ScenarioConfig,
     TrialAction,
     TrialLatentState,
     TrialObservation,
-    TrialResult,
     TrialState,
 )
+from server.curriculum.controller import select_scenario
+from server.judge import TrialJudge
 from server.logger import EpisodeLogger
 from server.noise_model import NoiseModel
+from server.phase_detector import detect_phase
+from server.reward.reward_computer import compute_reward
 from server.rules.fda_rules import check_fda_compliance
-
-# Default scenario used until CurriculumController is fully wired (Push 3).
-_DEFAULT_SCENARIO = ScenarioConfig(
-    scenario_id="solid_tumor_chemo",
-    curriculum_tier=0,
-    disease_area="NSCLC",
-    effect_size_range=(0.3, 0.7),
-    side_effect_rate_range=(0.05, 0.20),
-    placebo_response_range=(0.10, 0.25),
-    dropout_rate_range=(0.05, 0.15),
-    budget_usd=1_000_000.0,
-    time_budget_days=365,
-    min_sample_size=100,
-    description="Solid tumor chemotherapy — find EGFR+ subgroup",
-)
+from server.simulator.output_generator import OutputGenerator
+from server.simulator.transition_engine import TransitionEngine
+from server.simulator.trial_simulator import simulate_trial
 
 _MAX_STEPS = 100
+
+
+def _phase_order_correct_at(phase: str, prior_history: list[str]) -> bool:
+    """Return True if `phase` is a valid next phase given `prior_history`."""
+    from server.phase_detector import PHASE_ORDER
+
+    if not prior_history:
+        return True
+    last = prior_history[-1]
+    last_idx = PHASE_ORDER.index(last) if last in PHASE_ORDER else 0
+    current_idx = PHASE_ORDER.index(phase) if phase in PHASE_ORDER else 0
+    return current_idx >= last_idx and (current_idx - last_idx) <= 1
 
 
 class EpisodeManager:
@@ -58,22 +65,35 @@ class EpisodeManager:
         self._episode_id: str = ""
         self._difficulty: float = 0.0
         self._scenario: ScenarioConfig | None = None
+        self._phase_history: list[str] = []
+        self._noise_model: NoiseModel | None = None
+        self._curriculum_tier: int = 0
+        self._transition_engine: TransitionEngine = TransitionEngine()
+        self._judge: TrialJudge = TrialJudge()
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
     def reset(self, seed: int | None = None) -> TrialObservation:
-        """Initialize a new episode and return the initial TrialObservation."""
+        """Initialize a new episode and return the initial TrialObservation.
+
+        Seeded resets are reproducible: same seed → same scenario selection
+        and initial TrialLatentState (Req 8.5, 9.4).
+        """
         resolved_seed = seed if seed is not None else random.randint(0, 2**31 - 1)
         self._episode_id = str(uuid.uuid4())
 
-        # Step 1: Select scenario (stub — CurriculumController wired in Push 3)
-        scenario = _DEFAULT_SCENARIO
+        # Step 1: Select scenario via CurriculumController (Req 8.3, 8.5)
+        # Use a seeded RNG so scenario selection is reproducible for same seed.
+        scenario_rng = np.random.default_rng(resolved_seed)
+        scenario = select_scenario(self._curriculum_tier, scenario_rng)
         self._scenario = scenario
 
-        # Step 2: Apply domain randomization via NoiseModel (req 9.1, 9.2)
+        # Step 2: Apply domain randomization via NoiseModel (Req 9.1, 9.2)
+        # NoiseModel is seeded so same seed → same randomized config.
         noise_model = NoiseModel(seed=resolved_seed)
+        self._noise_model = noise_model
         randomized = noise_model.randomize(scenario)
 
         # Sample concrete hidden values from randomized ranges
@@ -109,6 +129,7 @@ class EpisodeManager:
             protocol_submitted=False,
             interim_complete=False,
             trial_complete=False,
+            adverse_events=0,
             episode_phase="literature_review",
             action_history=[],
             seed=resolved_seed,
@@ -117,26 +138,55 @@ class EpisodeManager:
         # Step 4: Build lightweight TrialState for training loop
         self._state = self._state_from_latent(self._latent, randomized)
 
+        # Step 5: Clear power cache (Req 14.3)
         self._clear_cache()
+        self._phase_history = []
 
-        # Step 5: Fresh logger and reward accumulator
+        # Step 6: Fresh logger (episode_id matches this episode), reward accumulator
         self._logger = EpisodeLogger(
-            curriculum_tier=randomized.curriculum_tier
+            episode_id=self._episode_id,
+            curriculum_tier=randomized.curriculum_tier,
         )
         self._total_reward = 0.0
-        self._difficulty = 0.0
+        # Difficulty scales linearly with curriculum tier: tier 0 → 0.0, tier 4 → 1.0
+        self._difficulty = scenario.curriculum_tier / 4.0
 
-        return self._observation_from_latent(self._latent, randomized)
+        # Step 7: Return initial TrialObservation via OutputGenerator
+        output_gen = OutputGenerator(noise_model)
+        return output_gen.generate(
+            latent=self._latent,
+            trial_state=self._state,
+            steps_taken=0,
+            max_steps=_MAX_STEPS,
+            rule_violations=[],
+            done=False,
+            reward=0.0,
+            scenario_description=scenario.description,
+            hint="",
+        )
 
     def step(
         self, action: TrialAction
     ) -> tuple[TrialObservation, RewardBreakdown, bool, dict]:
-        """Advance the episode by one step."""
+        """Advance the episode by one step.
+
+        Full pipeline (Req 8.5, 9.4, 7.1):
+          1. Validate active episode
+          2. check_fda_compliance → ComplianceResult
+          3. TransitionEngine.apply_transition() mutates TrialLatentState
+          4. OutputGenerator.generate() produces noisy TrialObservation
+          5. compute_reward() → RewardBreakdown
+          6. PhaseDetector.detect_phase() classifies action
+          7. TrialJudge.verify() for hint/feedback
+          8. Check terminal condition
+          9. Log full EpisodeTranscript to JSONL
+          10. Return (obs, reward_breakdown, done, info)
+        """
         if self._latent is None or self._scenario is None:
             raise RuntimeError("No active episode. Call reset() before step().")
 
         try:
-            # Check FDA compliance against latent state (req 10.1, 10.4)
+            # Step 1: Check FDA compliance (read-only, does not mutate state)
             compliance = check_fda_compliance(action, self._latent)
 
             if not compliance.valid:
@@ -146,73 +196,116 @@ class EpisodeManager:
                     r_info_gain=0.0,
                     r_efficiency=0.0,
                     r_novelty=0.0,
-                    r_penalty=0.0,
+                    r_penalty=-0.5 * len(compliance.violations),
                     r_terminal_success=0.0,
                     r_terminal_calibration=0.0,
                 )
                 done = False
+                step_idx = len(self._latent.action_history)
                 info: dict = {
-                    "step_index": len(self._latent.action_history),
+                    "step_index": step_idx,
                     "action_valid": False,
                     "violations": compliance.violations,
                 }
-                obs = self._observation_from_latent(
-                    self._latent,
-                    self._scenario,
+                # Build observation without mutating latent
+                noise_model = self._noise_model or NoiseModel(seed=self._latent.seed)
+                output_gen = OutputGenerator(noise_model)
+                obs = output_gen.generate(
+                    latent=self._latent,
+                    trial_state=self._state
+                    or self._state_from_latent(self._latent, self._scenario),
+                    steps_taken=step_idx,
+                    max_steps=_MAX_STEPS,
                     rule_violations=compliance.violations,
+                    done=False,
+                    reward=reward.total,
+                    scenario_description=self._scenario.description,
+                    hint="",
                 )
+                # Log invalid step
                 if self._logger is not None:
-                    self._logger.log_step(
-                        len(self._latent.action_history), action, obs, reward, done
-                    )
+                    self._logger.log_step(step_idx, action, obs, reward, done)
                 return obs, reward, done, info
 
-            # Valid action: advance latent state
-            self._latent = self._latent.model_copy(
-                update={
-                    "action_history": (
-                        self._latent.action_history + [action.action_type.value]
-                    ),
-                }
+            # Step 2: TransitionEngine mutates TrialLatentState
+            updated_latent = self._transition_engine.apply_transition(
+                self._latent, action
+            )
+            self._latent = updated_latent
+
+            # Step 3: Detect phase and update phase history
+            phase_name, phase_order_correct = detect_phase(action, self._phase_history)
+            self._phase_history = self._phase_history + [phase_name]
+
+            # Step 4: Simulate trial result for reward computation
+            result = simulate_trial(self._latent, action)
+
+            # Step 5: Compute reward (all 8 components)
+            reward = compute_reward(
+                action=action,
+                latent=self._latent,
+                result=result,
+                phase_history=self._phase_history[:-1],  # history before this step
             )
 
-            # Stub TrialResult
-            _result = TrialResult(
-                p_value=0.05,
-                success=False,
-                power=0.8,
-                adverse_event_rate=0.1,
-                confidence_interval=(0.0, 1.0),
-                failure_reason=None,
-            )
+            # Step 6: TrialJudge verification (hint + overconfidence penalty)
+            self._state = self._state_from_latent(self._latent, self._scenario)
+            judge_result = self._judge.verify(action, self._state, self._latent)
+            hint = judge_result.hint or ""
 
-            # Stub reward
-            reward = RewardBreakdown(
-                r_validity=0.0,
-                r_ordering=0.0,
-                r_info_gain=0.0,
-                r_efficiency=0.0,
-                r_novelty=0.0,
-                r_penalty=0.0,
-                r_terminal_success=0.0,
-                r_terminal_calibration=0.0,
-            )
+            # Apply overconfidence penalty to r_penalty
+            if judge_result.overconfidence_penalty != 0.0:
+                reward = reward.model_copy(
+                    update={
+                        "r_penalty": (
+                            reward.r_penalty + judge_result.overconfidence_penalty
+                        )
+                    }
+                )
 
+            # Step 7: Check terminal condition
             step_idx = len(self._latent.action_history)
             done = step_idx >= _MAX_STEPS or self._latent.trial_complete
-            info = {"step_index": step_idx, "action_valid": True}
 
-            obs = self._observation_from_latent(self._latent, self._scenario)
+            # Step 8: Generate noisy observation via OutputGenerator
+            noise_model = self._noise_model or NoiseModel(seed=self._latent.seed)
+            output_gen = OutputGenerator(noise_model)
+            obs = output_gen.generate(
+                latent=self._latent,
+                trial_state=self._state,
+                steps_taken=step_idx,
+                max_steps=_MAX_STEPS,
+                rule_violations=[],
+                done=done,
+                reward=reward.total,
+                scenario_description=self._scenario.description,
+                hint=hint,
+            )
 
-            # Update training-loop TrialState
-            self._state = self._state_from_latent(self._latent, self._scenario)
+            # Step 9: Accumulate total reward
+            self._total_reward += reward.total
 
-            # Accumulate reward and log step (req 7.1)
-            self._total_reward += sum(reward.model_dump().values())
+            # Step 10: Log full EpisodeTranscript record to JSONL (Req 7.1)
+            transcript = EpisodeTranscript(
+                episode_id=self._episode_id,
+                step=step_idx,
+                action=action,
+                observation=obs,
+                reward_breakdown=reward.model_dump(),
+                total_reward=reward.total,
+                phase_detected=phase_name,
+                phase_order_correct=phase_order_correct,
+                hidden_state_snapshot=self._latent,
+                timestamp=datetime.now(timezone.utc).isoformat(),
+            )
             if self._logger is not None:
                 self._logger.log_step(step_idx, action, obs, reward, done)
+                # Also write the full EpisodeTranscript as a separate JSONL record
+                self._logger._append_jsonl(
+                    {"type": "transcript", **transcript.model_dump(mode="json")}
+                )
 
-            # Log summary on episode end (req 7.2)
+            # Log summary on episode end (Req 7.2)
             if done and self._logger is not None:
                 self._logger.log_summary(
                     scenario_id=self._scenario.scenario_id,
@@ -223,11 +316,22 @@ class EpisodeManager:
                     ),
                 )
 
+            info = {
+                "step_index": step_idx,
+                "action_valid": True,
+                "phase_detected": phase_name,
+                "phase_order_correct": phase_order_correct,
+                "judge_passed": judge_result.passed,
+                "judge_feedback": judge_result.feedback,
+                "judge_hint": hint,
+                "overconfidence_penalty": judge_result.overconfidence_penalty,
+            }
+
             return obs, reward, done, info
 
         except RuntimeError:
             raise
-        except Exception as exc:  # req 10.4: no unhandled exceptions
+        except Exception as exc:  # Req 10.4: no unhandled exceptions
             reward = RewardBreakdown(
                 r_validity=-1.0,
                 r_ordering=0.0,
@@ -244,10 +348,50 @@ class EpisodeManager:
                 "action_valid": False,
                 "violations": [f"Internal error: {exc}"],
             }
-            obs = self._observation_from_latent(
-                self._latent,
-                self._scenario,
-                rule_violations=[f"Internal error: {exc}"],
+            noise_model = self._noise_model or NoiseModel(
+                seed=self._latent.seed if self._latent else 0
+            )
+            output_gen = OutputGenerator(noise_model)
+            obs = (
+                output_gen.generate(
+                    latent=self._latent,
+                    trial_state=self._state
+                    or TrialState(
+                        episode_id=self._episode_id,
+                        step_count=step_idx,
+                        difficulty=self._difficulty,
+                        scenario_id=self._scenario.scenario_id
+                        if self._scenario
+                        else "",
+                        curriculum_tier="0",
+                        curriculum_stats={},
+                        action_diversity=0.0,
+                        phase_compliance_rate=0.0,
+                        is_resolved=False,
+                    ),
+                    steps_taken=step_idx,
+                    max_steps=_MAX_STEPS,
+                    rule_violations=[f"Internal error: {exc}"],
+                    done=False,
+                    reward=reward.total,
+                    scenario_description=(
+                        self._scenario.description if self._scenario else ""
+                    ),
+                    hint="",
+                )
+                if self._latent is not None
+                else TrialObservation(
+                    scenario_description="",
+                    phase_data={},
+                    resource_status={},
+                    rule_violations=[f"Internal error: {exc}"],
+                    available_actions=[],
+                    steps_taken=step_idx,
+                    max_steps=_MAX_STEPS,
+                    hint="",
+                    done=False,
+                    reward=0.0,
+                )
             )
             return obs, reward, False, info
 
@@ -276,9 +420,20 @@ class EpisodeManager:
         """Build the lightweight TrialState from latent state."""
         step_count = len(latent.action_history)
         unique_actions = len(set(latent.action_history))
-        action_diversity = (
-            unique_actions / step_count if step_count > 0 else 0.0
-        )
+        action_diversity = unique_actions / step_count if step_count > 0 else 0.0
+
+        # Compute phase compliance rate from phase history
+        phase_steps = len(self._phase_history)
+        if phase_steps > 0:
+            correct_count = sum(
+                1
+                for i, ph in enumerate(self._phase_history)
+                if _phase_order_correct_at(ph, self._phase_history[:i])
+            )
+            phase_compliance_rate = correct_count / phase_steps
+        else:
+            phase_compliance_rate = 0.0
+
         return TrialState(
             episode_id=self._episode_id,
             step_count=step_count,
@@ -287,37 +442,6 @@ class EpisodeManager:
             curriculum_tier=str(scenario.curriculum_tier),
             curriculum_stats={},
             action_diversity=action_diversity,
-            phase_compliance_rate=0.0,  # wired in Push 3 with PhaseDetector
+            phase_compliance_rate=phase_compliance_rate,
             is_resolved=latent.trial_complete,
-        )
-
-    def _observation_from_latent(
-        self,
-        latent: TrialLatentState,
-        scenario: ScenarioConfig,
-        rule_violations: list[str] | None = None,
-    ) -> TrialObservation:
-        """Build a TrialObservation from latent state — noisy, agent-facing."""
-        return TrialObservation(
-            scenario_description=scenario.description,
-            phase_data={
-                "episode_phase": latent.episode_phase,
-                "observed_effect_estimate": None,
-                "observed_side_effect_rate": None,
-                "phase_i_complete": latent.phase_i_complete,
-                "interim_complete": latent.interim_complete,
-                "protocol_submitted": latent.protocol_submitted,
-            },
-            resource_status={
-                "budget_remaining": latent.budget_remaining,
-                "time_remaining_days": latent.time_remaining_days,
-                "patients_enrolled": latent.patients_enrolled,
-            },
-            rule_violations=rule_violations or [],
-            available_actions=[],  # wired in Push 3 with TransitionEngine
-            steps_taken=len(latent.action_history),
-            max_steps=_MAX_STEPS,
-            hint="",  # populated by TrialJudge at junior difficulty (Push 3)
-            done=latent.trial_complete,
-            reward=0.0,  # filled in by step() after reward computation
         )

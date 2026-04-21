@@ -44,16 +44,12 @@ class TestNoiseModelIdempotence:
         r2 = NoiseModel(seed=42).randomize(base_scenario)
         assert r1.time_budget_days == r2.time_budget_days
 
-    def test_same_seed_same_dropout_range(
-        self, base_scenario: ScenarioConfig
-    ) -> None:
+    def test_same_seed_same_dropout_range(self, base_scenario: ScenarioConfig) -> None:
         r1 = NoiseModel(seed=42).randomize(base_scenario)
         r2 = NoiseModel(seed=42).randomize(base_scenario)
         assert r1.dropout_rate_range == r2.dropout_rate_range
 
-    def test_same_seed_same_placebo_range(
-        self, base_scenario: ScenarioConfig
-    ) -> None:
+    def test_same_seed_same_placebo_range(self, base_scenario: ScenarioConfig) -> None:
         r1 = NoiseModel(seed=42).randomize(base_scenario)
         r2 = NoiseModel(seed=42).randomize(base_scenario)
         assert r1.placebo_response_range == r2.placebo_response_range
@@ -114,9 +110,7 @@ class TestNoiseModelRanges:
         assert result.side_effect_rate_range == base_scenario.side_effect_rate_range
         assert result.min_sample_size == base_scenario.min_sample_size
 
-    def test_time_budget_at_least_one_day(
-        self, base_scenario: ScenarioConfig
-    ) -> None:
+    def test_time_budget_at_least_one_day(self, base_scenario: ScenarioConfig) -> None:
         for seed in range(50):
             result = NoiseModel(seed=seed).randomize(base_scenario)
             assert result.time_budget_days >= 1

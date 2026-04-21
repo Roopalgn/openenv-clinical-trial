@@ -31,9 +31,7 @@ class EpisodeLogger:
         episode_id: str | None = None,
         curriculum_tier: int = 0,
     ) -> None:
-        self._log_path: Path = (
-            log_path if log_path is not None else settings.log_path
-        )
+        self._log_path: Path = log_path if log_path is not None else settings.log_path
         self._episode_id: str = (
             episode_id if episode_id is not None else str(uuid.uuid4())
         )

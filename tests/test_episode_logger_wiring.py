@@ -38,9 +38,7 @@ class TestLoggerCreatedOnReset:
     def test_logger_exists_after_reset(self, manager: EpisodeManager) -> None:
         assert manager._logger is not None
 
-    def test_logger_replaced_on_second_reset(
-        self, manager: EpisodeManager
-    ) -> None:
+    def test_logger_replaced_on_second_reset(self, manager: EpisodeManager) -> None:
         first_id = manager._logger.episode_id
         manager.reset()
         second_id = manager._logger.episode_id
@@ -53,9 +51,7 @@ class TestLoggerCreatedOnReset:
 class TestLogStepCalledOnStep:
     """Requirement 7.1: log_step() is called for every step."""
 
-    def test_log_step_called_for_invalid_action(
-        self, manager: EpisodeManager
-    ) -> None:
+    def test_log_step_called_for_invalid_action(self, manager: EpisodeManager) -> None:
         mock_logger = MagicMock()
         manager._logger = mock_logger
 

@@ -32,9 +32,7 @@ def _budget_efficiency(
     return min(max(latent.budget_remaining / initial_budget, 0.0), 1.0)
 
 
-def potential(
-    latent: TrialLatentState, initial_budget: float = 1_000_000.0
-) -> float:
+def potential(latent: TrialLatentState, initial_budget: float = 1_000_000.0) -> float:
     """φ(s) = milestone_completion × budget_efficiency."""
     return _milestone_completion(latent) * _budget_efficiency(latent, initial_budget)
 
