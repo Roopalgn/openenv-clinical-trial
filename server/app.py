@@ -77,7 +77,7 @@ def step(action: TrialAction) -> StepResponse:
 
 @app.get("/state", response_model=TrialState)
 def state() -> TrialState:
-    """Return the current full TrialState."""
+    """Return the current TrialState (training-loop metadata)."""
     try:
         return _manager.get_state()
     except RuntimeError as exc:
