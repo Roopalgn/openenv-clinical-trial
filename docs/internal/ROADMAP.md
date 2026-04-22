@@ -26,7 +26,7 @@
 
 | # | Gap | Winner Evidence | Severity | Rubric Weight |
 |---|-----|----------------|----------|---------------|
-| G16 | No actual training run — zero reward curves, zero before/after episodes | KubeSRE: 3 training runs with reward curves + failure analysis; BioExp: trajectory datasets; EcomRLVE: trajectory generation | CRITICAL | 20% (Showing Improvement) + 30% (Storytelling) — **addressed in Push 8 onsite H100 training** |
+| G16 | No actual training run — zero reward curves, zero before/after episodes | KubeSRE: 3 training runs with reward curves + failure analysis; BioExp: trajectory datasets; EcomRLVE: trajectory generation | CRITICAL | 20% (Showing Improvement) + 30% (Storytelling) — **all training onsite Apr 25–26 on HF H100** |
 | G17 | No grounding in validated clinical trial simulator (no "WOFOST" analog) | KubeSRE: real GKE cluster; BioExp: Scanpy/DESeq2 references; EcomRLVE: 2M real Amazon products | MEDIUM | Weakens 40% (Environment Innovation) defensibility |
 | G18 | No HF Space deployed — submission requires GitHub repo + HF Space URL | All 3 winners deployed to HF Spaces | HIGH | Submission requirement |
 | G19 | Mini-blog not published on HuggingFace (draft exists in docs/mini_blog_draft.md) | All winners had published deliverables | HIGH | Minimum requirement |
@@ -44,7 +44,7 @@
 - [ ] 3-minute pitch + 2-minute Q&A prepared
 - [ ] Valid government-issued ID + college/company ID for venue entry
 
-> **IMPORTANT (UPDATED Apr 22):** Organisers confirmed **NO training is allowed before Apr 25.** All GRPO training must happen onsite using HuggingFace H100 credits. Kaggle/Colab notebooks are still valuable for pipeline validation (dry-run) and as judge-facing deliverables, but actual model training starts onsite. Push 7 Phase B (Kaggle pre-training) is **CANCELLED**. Use remaining pre-onsite time for maximum preparation.
+> **IMPORTANT (UPDATED Apr 22):** Organisers confirmed **NO training is allowed before Apr 25.** All GRPO training happens onsite using HuggingFace H100 credits. Kaggle/Colab notebooks are used for pipeline validation (dry-run) and as judge-facing deliverables only. Push 7 Phase B is preparation/validation only. Push 8 onsite is where ALL training happens.
 
 ## 1. Mission and Success Bar
 
@@ -248,21 +248,21 @@
 
 ### PR name: `[Push 6] Roopal: storytelling, mini-blog, final docs` / `[Push 6] Suyash: HF Space hardening, OpenEnv validation, transcript export`
 
-## Push 7 — Deploy + Pre-Training (Apr 22–24, before travel)
+## Push 7 — Deploy + Maximum Preparation (Apr 22–24, before travel)
 
-**Goal:** Merge all Phase A work, run actual GRPO pre-training on Kaggle/Colab free GPUs, and arrive onsite on Apr 25 with **real reward curves and episode transcripts already in hand.** Onsite H100 time is then 100% refinement/scaling + deliverables.
+**Goal:** Merge all Phase A work, battle-test the full training pipeline with dry-runs, and prepare every artifact so Apr 25 onsite training is **zero-friction execution** from minute one. No actual model training before onsite — only pipeline validation and deliverable preparation.
 
-> **UPDATE (confirmed Apr 22, later reversed):** Organisers confirmed training IS allowed before Apr 25. Pre-training on free GPU platforms (Kaggle T4/P100, Colab T4) is back on. H100 onsite credits are for refinement/scaling with larger models.
+> **RULE (confirmed by organisers):** NO training before Apr 25. All GRPO runs happen onsite on HF H100 credits. Kaggle/Colab are for dry-run pipeline validation and notebook testing only.
 >
-> **Resources:** `docs/internal/resources.md` contains full hackathon reference material — OpenEnv docs, TRL/GRPO guides, reward engineering papers, common pitfalls, and Q&A from organiser sessions. Consult before training runs.
+> **Resources:** `docs/internal/resources.md` contains full hackathon reference material — OpenEnv docs, TRL/GRPO guides, reward engineering papers, common pitfalls, and Q&A from organiser sessions. Study before onsite.
 
 ### Free GPU Platform Reference (for onsite fallback + notebook testing)
 
 | Platform | GPU | VRAM | Weekly Quota | Session Limit | Stability | Use Case |
 |----------|-----|------|-------------|---------------|-----------|----------|
-| **Kaggle** | T4 ×2 or P100 | 16 GB | **30 hrs/week** (sometimes higher) | 12 hrs/session | High — no random disconnects | **PRIMARY for pre-training** — best quota + stability |
-| **Colab Free** | T4 | 15 GB | Dynamic / unpublished | 12 hrs max | Medium — sessions can terminate randomly | **BACKUP** for pre-training; judge deliverable |
-| **HF H100 (onsite)** | H100 | 80 GB | Provided by organisers | Event duration | N/A | **Refinement/scaling** — larger models + more episodes |
+| **Kaggle** | T4 ×2 or P100 | 16 GB | **30 hrs/week** (sometimes higher) | 12 hrs/session | High — no random disconnects | **Dry-run validation** + notebook testing; onsite fallback if H100 unavailable |
+| **Colab Free** | T4 | 15 GB | Dynamic / unpublished | 12 hrs max | Medium — sessions can terminate randomly | **Judge deliverable** — notebook must run here; dry-run only |
+| **HF H100 (onsite)** | H100 | 80 GB | Provided by organisers | Event duration | N/A | **PRIMARY — ALL real training happens here** |
 
 **VRAM Budget Reference (for onsite model selection):**
 
@@ -305,52 +305,39 @@
 - ✅ `docs/grounding.md` written and referenced from ARCHITECTURE.md.
 - ✅ 249/249 tests pass, CI all green.
 
-### Phase B: Pre-Training on Kaggle (Apr 23–24)
+### Phase B: Maximum Preparation (Apr 23–24)
 
-> **Organisers confirmed pre-training is allowed before Apr 25.** Arriving onsite with real reward curves gives a massive advantage — 50% of the rubric (Storytelling 30% + Showing Improvement 20%) depends on training data.
+> **NO training before Apr 25.** Use this time to validate notebooks with dry-run, prepare deliverable templates, and ensure onsite execution is frictionless.
 
-#### Available Artifacts (already on roopal branch)
+#### Available Artifacts (on main after merge)
 
 - `outputs/grpo/reward_log.csv` — random policy baseline from dry-run (2 episodes, mean reward −61.6)
 - `outputs/grpo/training_summary.json` — dry-run summary (model: `dry-run/random-policy`, seed 42, tier 0)
-- `train.py` fix — corrected `plot_rewards.py` arg names (`--input`→`--csv`, `--output`→`--out`)
-- `docs/internal/resources.md` — full hackathon resource guide (OpenEnv, TRL, GRPO, reward engineering, pitfalls)
+- `docs/internal/resources.md` — full hackathon reference guide (OpenEnv, TRL, GRPO, reward engineering, pitfalls)
 
-#### Roopal: tasks (merge + train + document)
+#### Roopal: tasks (validate + prepare)
 
-- Merge `roopal` branch Push 7 work into main via PR (grounding.md, rpact_validation.json, train_kaggle.ipynb, ARCHITECTURE.md updates, pitch_notes.md updates, dry-run outputs, train.py fix).
-- **(G20)** Test `train_colab.ipynb` on Colab **free tier** (T4) with 1.5B model, 5 episodes. If Qwen2.5-7B setup cell fails on T4, add a 1.5B + Unsloth 4-bit fallback cell.
-- **(G20)** Test `train_kaggle.ipynb` on Kaggle (T4/P100) with 1.5B model, 5 episodes. Validate CSV + JSONL generation.
-- **(G16)** Launch **Run 1** on Kaggle: `Qwen2.5-1.5B-Instruct` + Unsloth 4-bit + LoRA rank 8, 20 episodes, seed 42. Monitor reward CSV live. Expected runtime: ~2–4 hours on T4.
-  - After Run 1, run `python plot_rewards.py` to check signal quality.
-  - If positive slope → proceed to **Run 2** (50 episodes). If flat → debug reward weights with Suyash.
-- **(G21)** Document every bug or surprise discovered during training in `docs/training_log.md`:
-  - Reward too generous / too sparse → adjust weights
-  - Agent stuck on same action → add repeat penalty or novelty bonus
-  - Phase ordering penalties too harsh → relax warmup tier
-  - Output parsing failures → fix `_build_action_from_text`
-  - These bugs **ARE the Statement 4 co-evolution story.**
-- Extract 3 key episode transcripts from JSONL: (1) episode 1 failure, (2) mid-training breakthrough, (3) late-episode success.
-- Run `python eval_compare.py` to get base (random, −61.6) vs trained comparison tables.
-- Update `docs/internal/pitch_notes.md` with real reward numbers and episode excerpts.
+- **(G20)** Test `train_colab.ipynb` on Colab **free tier** (T4) with `--dry-run` mode. Verify it connects to HF Space, runs 2 dry-run episodes, produces valid CSV. If Qwen2.5-7B setup cell fails on T4, add a 1.5B + Unsloth 4-bit fallback cell.
+- **(G20)** Test `train_kaggle.ipynb` on Kaggle (T4/P100) with `--dry-run` mode. Same validation — both notebooks become judge deliverables.
+- Prepare `docs/onsite_checklist.md` — step-by-step terminal commands for onsite:
+  - Exact `git clone` + `pip install` sequence for H100 environment
+  - H100 environment variable setup (`CUDA_VISIBLE_DEVICES`, `HF_TOKEN`, etc.)
+  - Model size fallback ladder: try 7B first → 3B fallback → 1.5B safety net
+  - Expected runtime per model size on H100 (estimated: 7B ~15 min/episode, 3B ~8 min/episode, 1.5B ~3 min/episode)
+  - Checkpoint frequency and disk budget
+- Prepare deliverable templates with `[FILL ONSITE]` placeholders:
+  - `docs/mini_blog_draft.md`: all sections written, reward curve/episode slots marked
+  - `docs/internal/pitch_notes.md`: pitch script complete except data placeholders
+  - `docs/training_log.md`: template with columns ready for Statement 4 bugs
+- Study `docs/internal/resources.md` for reward engineering best practices and common pitfalls before onsite.
 
-#### Suyash: tasks (merge + debug + iterate)
+#### Suyash: tasks (validate + harden)
 
-- Merge `Suyash` branch Push 7 work into main via PR (train.py --dry-run/--model-size, eval_compare.py --base-only, Dockerfile PORT, CI fixes).
-- Support Roopal on Run 1 debugging: fix integration bugs, reward miscalculations, or OOM errors.
-- If Run 1 succeeds on 1.5B: attempt **Run 2** with `Qwen2.5-3B-Instruct` on Kaggle (should fit in 16 GB with 4-bit). Compare learning curves across model sizes.
+- Run full integration test on main: `python train.py --dry-run --episodes 5 --model-size 1.5b` → verify CSV, PNG, JSONL all correct.
+- Run `python eval_compare.py --base-only --episodes 5` → verify baseline JSON report.
 - **(G22, optional)** Add LLM adversarial mode to `adversarial_designer.py` if time permits.
-- Generate `results/reward_curve.png` via `plot_rewards.py` for each completed run.
-- Commit all pre-training artifacts to repo: `logs/rewards.csv`, `logs/transcripts.jsonl`, `results/eval_report.json`, `results/reward_curve.png`.
-- Verify HF Space still responds after merges and code changes.
-
-#### Kaggle Session Strategy
-
-- ~~**Session 1 (Apr 23 morning):** Merge branches to main~~ ✅ DONE (merged Apr 22) + Run 1 (20 episodes, 1.5B). ~4 hrs.
-- **Session 2 (Apr 23 evening):** Run 2 (50 episodes, 1.5B) OR Run 2 (20 episodes, 3B). ~6 hrs.
-- **Session 3 (Apr 24, if needed):** Final run with tuned reward weights if earlier runs found bugs. ~4 hrs.
-- **Total Kaggle quota used:** ~14 hrs out of 30 hrs/week. Leaves buffer for reruns.
-- **Fallback:** If Kaggle has issues, switch to Colab free tier for 1.5B runs.
+- Stress-test `train.py` with edge cases: `--episodes 1`, `--episodes 100` (dry-run), verify checkpoint logic, verify resume-from-checkpoint works.
+- Verify HF Space is still live and `/ping` + `/reset` + `/step` all respond after merges.
 
 #### Branch Merge Status ✅ COMPLETE (Apr 22)
 
@@ -361,61 +348,67 @@ Both branches merged to main:
 
 #### Phase B Gate
 
-- Both branches merged to main cleanly.
-- At least 1 complete GRPO training run (1.5B, 20+ episodes) with reward CSV + reward curve plot.
-- Reward curve shows some signal (positive slope, even if noisy).
-- At least 3 episode transcripts extracted for demo.
-- `eval_compare.py` run: base (−61.6) vs pre-trained comparison saved.
-- `docs/training_log.md` has at least 2 co-evolution bugs documented (Statement 4).
-- Pre-trained LoRA checkpoint saved (locally + optionally HF Hub).
+- Both branches merged to main cleanly. ✅ DONE
+- `python train.py --dry-run --episodes 5` works on merged main.
+- Colab notebook tested on free tier with dry-run.
+- Kaggle notebook tested with dry-run.
+- `docs/onsite_checklist.md` created and reviewed by both.
+- All deliverable templates have `[FILL ONSITE]` placeholders.
 - HF Space live and responding.
 
-### PR name: `[Push 7] Merge Phase A + Kaggle pre-training`
+### PR name: `[Push 7] Merge Phase A + onsite preparation`
 
 ---
 
-## Push 8 — Onsite Refinement + Deliverables (Apr 25–26, Scaler campus)
+## Push 8 — Onsite Training + Deliverables (Apr 25–26, Scaler campus)
 
-**Goal:** Scale up training on H100 (larger model, more episodes), polish all deliverables with real data from BOTH pre-training + refinement runs, and prepare pitch. We arrive with pre-training results from Push 7 (Kaggle 1.5B runs), so onsite is focused on scaling + storytelling — NOT debugging from scratch.
+**Goal:** Execute ALL GRPO training on H100, generate the 50% rubric evidence (reward curves + storytelling), and ship all deliverables. Pipeline is battle-tested from Push 7 dry-runs — execution should be smooth.
 
-> **Compute:** HuggingFace H100 credits provided onsite (80 GB VRAM). Pre-training on Kaggle gives us baseline results to build on.
+> **Compute:** HuggingFace H100 credits provided onsite (80 GB VRAM). This is where ALL training happens.
 >
-> **Advantage from Push 7:** Real reward curves + episode transcripts already exist. H100 runs are refinement, not exploration. The comparison (Kaggle 1.5B → H100 3B/7B) IS the scaling narrative for the pitch.
+> **Advantage from Push 7:** `--dry-run` validated, `--model-size` presets tested, notebooks verified, onsite checklist ready. No debugging — just execute.
 
-### What We Arrive With (from Push 7 Pre-Training)
+### What We Arrive With (from Push 7 Preparation)
 
-- ✅ At least 1 complete training run (1.5B, 20+ episodes) with reward CSV + plot
-- ✅ Random policy baseline: −61.6 reward (from dry-run)
-- ✅ Base vs pre-trained comparison from `eval_compare.py`
-- ✅ 3+ episode transcripts (failure / breakthrough / success)
-- ✅ Initial `docs/training_log.md` with co-evolution bugs (Statement 4)
-- ✅ Pre-trained LoRA checkpoint for 1.5B model
 - ✅ HF Space live at `https://roopalgn-openenv-clinical-trial.hf.space`
-- ✅ Colab + Kaggle notebooks validated with real training
+- ✅ `train.py` with `--dry-run` + `--model-size` flags tested and working
+- ✅ Random policy baseline: −61.6 reward (from dry-run)
+- ✅ `eval_compare.py --base-only` baseline established
+- ✅ Colab + Kaggle notebooks validated with dry-run
+- ✅ `docs/onsite_checklist.md` with exact step-by-step commands
+- ✅ All deliverable templates with `[FILL ONSITE]` placeholders
+- ✅ `docs/training_log.md` template ready for Statement 4 bugs
 - ✅ `docs/internal/resources.md` with full hackathon reference material
+- ✅ `docs/grounding.md` + `rpact_validation.json` ready for judge questions
 
-### Phase 1: Scale-Up Training on H100 (Day 1, Hours 0–4)
+### Phase 1: First Training Run (Day 1, Hours 0–4)
 
 **Suyash leads execution, Roopal monitors + documents.**
 
-- **(G16 continued)** Launch H100 training runs to scale up from Kaggle pre-training:
-  - **Run H1 (scale model):** `python train.py --model-size 3b --model-path Qwen/Qwen2.5-3B-Instruct --episodes 50 --seed 42`
-    - Upgrade from 1.5B to 3B leveraging H100's 80 GB VRAM. No 4-bit quantization needed — use BF16 natively.
-  - **Run H2 (scale further, optional):** If 3B shows good signal → `--model-size 7b` with 30 episodes. H100 handles full Qwen2.5-7B in BF16 easily (~14 GB of 80 GB).
-  - Target: demonstrably **better** reward curves than Kaggle pre-training (steeper slope, higher final reward, or successful on harder scenarios).
-  - **If H100 runs show NO improvement over Kaggle:** Debug reward weights, try different curriculum tier. Document as co-evolution.
-- Log every episode to CSV (`logs/rewards_h100.csv`) + JSONL (`logs/transcripts_h100.jsonl`).
-- After each run, compare reward curves: Kaggle 1.5B vs H100 3B/7B. This comparison IS the pitch narrative.
-- **(G21 continued)** Document any new bugs from H100 training in `docs/training_log.md`.
+- **(G16)** Launch GRPO training on H100. **Strategy: start small, scale fast.**
+  - **Run 1 (fast signal check):** `python train.py --model-size 1.5b --model-path Qwen/Qwen2.5-1.5B-Instruct --episodes 20 --seed 42`
+    - Target: ~20 episodes in ~1 hour. Uses only ~3 GB of 80 GB VRAM. This gives reward data FAST.
+    - BF16 natively on H100, no quantization needed.
+  - **Run 2 (scale up):** If Run 1 shows signal → immediately: `python train.py --model-size 3b --model-path Qwen/Qwen2.5-3B-Instruct --episodes 50 --seed 42`
+    - Or if ambitious: `--model-size 7b` with 30 episodes — H100 handles full 7B in BF16 easily.
+  - **If Run 1 shows NO signal:** Debug reward weights, check shaping function, try different curriculum tier. **Document the iteration** — this is ALSO part of the Statement 4 co-evolution story.
+- Log every episode to CSV (`logs/rewards.csv`) + JSONL (`logs/transcripts.jsonl`).
+- After each run, immediately run `python plot_rewards.py` to check signal quality.
+- **(G21)** **Document EVERY bug or surprise discovered during training** in `docs/training_log.md`:
+  - Reward too generous / too sparse → adjust weights
+  - Agent stuck on same action → add repeat penalty or novelty bonus
+  - Phase ordering penalties too harsh → relax warmup tier
+  - Output parsing failures → fix `_build_action_from_text`
+  - These bugs **ARE the Statement 4 co-evolution story.**
 
-### Phase 2: Final Eval + Comparison (Day 1, Hours 4–8)
+### Phase 2: Iterate + Final Eval (Day 1, Hours 4–10)
 
-- Run `python eval_compare.py` with all checkpoints:
-  - Base (random, −61.6) vs Kaggle-1.5B vs H100-3B (vs H100-7B if available)
-  - Save output as `results/eval_report.json` with multi-checkpoint comparison table.
-- Extract the **best** 3 episode transcripts across all runs for the pitch demo.
-- Generate combined reward curve plot showing all runs (Kaggle pre-training → H100 refinement). This demonstrates the "scaling" narrative.
-- Focus on curriculum progression: did the agent reach higher tiers on H100 runs?
+- If Run 1/2 show learning signal (positive reward slope): Run 3 with more episodes (50–100) and/or larger model.
+- Run `python eval_compare.py` to get base (random, −61.6) vs trained comparison tables.
+  - Save output as `results/eval_report.json`.
+- Extract 3 key episode transcripts from JSONL: (1) episode 1 failure, (2) mid-training breakthrough, (3) late-episode success.
+- Generate overlaid reward curve plot showing all runs if multiple were completed.
+- Focus on curriculum progression: did the agent reach higher tiers on longer runs?
 
 ### Phase 3: Deliverables (Day 2, Hours 0–6)
 
@@ -423,18 +416,18 @@ Both branches merged to main:
 
 #### Roopal: tasks
 
-- **(G19)** Publish mini-blog on HuggingFace: fill all `[FILL ONSITE]` placeholders in `docs/mini_blog_draft.md` with real data from BOTH Kaggle pre-training AND H100 refinement runs. Must include: problem statement, architecture diagram, reward curve image (showing Kaggle → H100 scaling), before/after episode comparison, what the agent learned, co-evolution bugs.
+- **(G19)** Publish mini-blog on HuggingFace: fill all `[FILL ONSITE]` placeholders in `docs/mini_blog_draft.md` with real training data. Must include: problem statement, architecture diagram, reward curve image, before/after episode comparison, what the agent learned, co-evolution bugs.
 - Update `README.md` § Results with actual training metrics from best run (replace placeholder tables).
-- Update `ARCHITECTURE.md` § Post-Training Results with: config table (1.5B Kaggle + 3B/7B H100), summary stats, key observations.
-- Fill `docs/internal/pitch_notes.md` with real reward numbers from H100 runs (upgrade from Push 7 Kaggle data).
-- Update `dashboard.html` demo data with best episode transcripts from H100 runs.
+- Update `ARCHITECTURE.md` § Post-Training Results with: config table, summary stats, key observations.
+- Fill `docs/internal/pitch_notes.md` with real reward numbers and episode excerpts.
+- Update `dashboard.html` demo data with best episode transcripts.
 
 #### Suyash: tasks
 
-- Push **best** trained LoRA checkpoint to HuggingFace Hub (e.g., `roopal-gn/clinical-trial-agent-lora`). Prefer H100 3B/7B checkpoint over Kaggle 1.5B if quality is better.
+- Push trained LoRA checkpoint to HuggingFace Hub (e.g., `roopal-gn/clinical-trial-agent-lora`).
 - Run final `eval_compare.py` with trained checkpoint. Save output as `results/eval_report.json`.
-- Generate final combined reward curve: `results/reward_curve.png` showing all runs (Kaggle 1.5B → H100 3B → H100 7B).
-- Commit all training artifacts to repo: `logs/rewards.csv`, `logs/rewards_h100.csv`, `logs/transcripts.jsonl`, `logs/transcripts_h100.jsonl`, `results/eval_report.json`, `results/reward_curve.png`.
+- Generate final `results/reward_curve.png` via `plot_rewards.py`.
+- Commit all training artifacts to repo: `logs/rewards.csv`, `logs/transcripts.jsonl`, `results/eval_report.json`, `results/reward_curve.png`.
 - Verify HF Space still responds correctly after any code changes from bug fixes.
 
 ### Phase 4: Pitch Prep (Day 2, Hours 6–8)
@@ -444,25 +437,23 @@ Both branches merged to main:
 - Rehearse 3-minute pitch with real data:
   - 0:00–0:30 — Problem: clinical trials cost $2.6B avg, 90% failure rate, high-stakes professional task.
   - 0:30–1:30 — Environment demo: show dashboard, hidden state, 19-action space, 10-phase workflow, 5-tier curriculum.
-  - 1:30–2:30 — Training results: Kaggle pre-training reward curve → H100 refinement improvement → before/after episode → curriculum tier progression. The "scaling" story: same env, bigger model, better results.
-  - 2:30–3:00 — Statement 4: bugs found during Kaggle pre-training → fixes applied → H100 refinement shows improvement → self-improvement loop.
+  - 1:30–2:30 — Training results: reward curve showing improvement, before/after episode, curriculum tier progression.
+  - 2:30–3:00 — Statement 4: bugs found during training → environment improved → self-improvement loop.
 - Prepare Q&A answers for likely judge questions:
   - "Why not real clinical trial data?" → Grounded in rpact/scipy.stats power calcs + FDA ICH E9 rules, not toy heuristics.
   - "How does difficulty adapt?" → Per-scenario mastery tracking, weak-spot targeting, adversarial compound challenges at expert tier.
   - "What did the agent learn?" → Show episode 1 vs episode N side by side.
   - "How is this different from a chatbot?" → Hidden ground truth, objective verification, no shortcut exploits.
-
-  - "How did you train before the event?" → Kaggle T4 free tier with 1.5B + Unsloth 4-bit, then scaled to 3B/7B on H100 onsite.
+  - "Where did you train?" → All training onsite on HF H100 credits. Pipeline was validated pre-event with dry-runs.
 
 ### Joint gate before push
 
-- At least 2 training phases (Kaggle pre-training + H100 refinement) with reward CSVs + combined reward curve plot.
-- H100 run shows improvement over Kaggle pre-training (steeper slope, higher final reward, or harder scenarios solved).
+- At least 1 complete training run with reward CSV + reward curve plot.
 - At least 3 episode transcripts extracted for demo (failure / breakthrough / success).
-- Mini-blog published on HuggingFace with real data from both training phases.
+- Mini-blog published on HuggingFace with real data.
 - `README.md` updated with actual results.
-- Best trained LoRA checkpoint on HuggingFace Hub.
-- `docs/training_log.md` documents bugs found across both Kaggle and H100 phases (Statement 4 evidence).
+- Trained LoRA checkpoint on HuggingFace Hub.
+- `docs/training_log.md` documents bugs found and fixes applied (Statement 4 evidence).
 - Pitch rehearsed with real data at least once.
 
 ### PR name: `[Push 8] Roopal: mini-blog, results docs, pitch` / `[Push 8] Suyash: H100 training, checkpoint, eval, artifacts`
@@ -473,17 +464,14 @@ Both branches merged to main:
 
 | Risk | Phase | Likelihood | Impact | Mitigation |
 |------|-------|-----------|--------|------------|
-| Kaggle T4 OOMs with 1.5B + Unsloth 4-bit | Push 7 | Low | Medium | 1.5B 4-bit uses ~3.7 GB — well within 16 GB. If OOM, reduce seq length to 1024. |
-| Kaggle quota runs out mid-training | Push 7 | Low | Medium | 30 hrs/week is generous (~14 hrs planned). Switch to Colab free tier as backup. |
-| Kaggle session disconnects during long run | Push 7 | Medium | Medium | Save checkpoints every 10 episodes (dynamic save_steps already configured). Resume from last checkpoint. |
-| No learning signal on 1.5B pre-training | Push 7 | Medium | High | Debug reward weights, try different curriculum tier. Even flat curves with annotations help. Document as co-evolution. |
-| 3B/7B model OOMs on H100 with env server | Push 8 | Low | Medium | H100 has 80 GB VRAM — 7B BF16 uses ~14 GB. Start with 3B. |
-| GRPO shows no improvement over pre-training | Push 8 | Medium | High | More episodes helps. Try different model size. Document comparison — even negative results are a story. |
-| HF H100 credits delayed or limited | Push 8 | Low | Critical | We already have Kaggle pre-training results. Onsite becomes polish + deliverables with existing data. |
+| 7B model OOMs on H100 with env server | Push 8 | Low | Medium | H100 has 80 GB VRAM — 7B BF16 uses ~14 GB. `--model-size` flag makes switching instant. Start with 1.5B. |
+| GRPO shows no learning signal | Push 8 | Medium | Critical | Debug reward weights live. Start with 1.5B for fast iteration. Even flat curves with annotated analysis are better than zero. |
+| HF H100 credits delayed or limited | Push 8 | Low | Critical | Have Kaggle T4 fallback with 1.5B + 4-bit quant. Notebooks pre-validated with dry-run. |
 | Docker image fails on HF Spaces | Push 7 | Low | High | Already validated. Space is live. Have local demo backup. |
 | TRL version incompatibility with vLLM | Push 7 | Low | Medium | Pinned in pyproject.toml. Tested in `--dry-run`. |
 | Merge conflicts between roopal + Suyash | Push 7 | ~~Low~~ | ~~Medium~~ | ✅ RESOLVED — merged Apr 22, train.py conflict resolved manually. |
-| Pipeline bug during first real training | Push 7 | Medium | Medium | Dry-run validated (−61.6 baseline). Real training may surface edge cases — document as co-evolution. |
+| Pipeline bug during first real training | Push 8 | Medium | High | Mitigated by extensive dry-run testing. `--dry-run` validated on both branches. Onsite checklist has debug commands. |
+| No time for large training run | Push 8 | Medium | Medium | Even 10–20 episodes with annotations beats zero. Start with 1.5B (fastest). |
 
 ## 4. Pre-Merge Checklist
 
@@ -523,28 +511,26 @@ Both branches merged to main:
 - [x] `train_kaggle.ipynb` scaffold created.
 - [x] CI all green (lint, format, pytest 249/249, Docker).
 
-#### Phase B: Pre-Training (Apr 23–24)
+#### Phase B: Preparation (Apr 23–24)
 - [x] Both branches merged to main cleanly (Apr 22 — Suyash + roopal merged, train.py conflict resolved).
-- [ ] Colab notebook tested on free tier (T4) with real 1.5B training (5 episodes).
-- [ ] Kaggle notebook tested with real 1.5B training (5 episodes).
-- [ ] At least 1 GRPO training run (1.5B, 20+ episodes) completed with reward CSV.
-- [ ] Reward curve plot generated (`results/reward_curve.png`).
-- [ ] `eval_compare.py` run: base (−61.6) vs pre-trained comparison saved.
-- [ ] 3+ episode transcripts extracted for demo.
-- [ ] Training bugs documented in `docs/training_log.md` (Statement 4).
-- [ ] Pre-trained LoRA checkpoint saved.
+- [ ] `python train.py --dry-run --episodes 5` works on merged main.
+- [ ] Colab notebook tested on free tier (T4) with dry-run.
+- [ ] Kaggle notebook tested with dry-run.
+- [ ] `docs/onsite_checklist.md` created and reviewed.
+- [ ] All deliverable templates have `[FILL ONSITE]` placeholders ready.
 - [ ] HF Space live and responding after merges.
 
-### Push 8 (Onsite Refinement + Deliverables) — Apr 25–26
+### Push 8 (Onsite Training + Deliverables) — Apr 25–26
 
-- [ ] H100 training run completed (3B or 7B, 50+ episodes) with reward CSV.
-- [ ] Combined reward curve (Kaggle → H100) generated.
-- [ ] H100 run shows improvement over Kaggle pre-training.
-- [ ] `eval_compare.py` multi-checkpoint comparison: base vs Kaggle-1.5B vs H100-3B/7B.
-- [ ] Mini-blog published on HuggingFace (< 2 min read) with both training phases.
+- [ ] At least 1 GRPO training run completed (1.5B or larger, 20+ episodes) with reward CSV.
+- [ ] Reward curve plot generated (`results/reward_curve.png`).
+- [ ] `eval_compare.py` run: base vs trained comparison saved.
+- [ ] 3+ episode transcripts extracted for demo.
+- [ ] Training bugs documented in `docs/training_log.md` (Statement 4).
+- [ ] Mini-blog published on HuggingFace (< 2 min read).
 - [ ] README updated with actual training results.
 - [ ] ARCHITECTURE.md post-training section filled.
-- [ ] Best trained LoRA checkpoint pushed to HF Hub.
+- [ ] Trained LoRA checkpoint pushed to HF Hub.
 - [ ] Pitch rehearsed with real data.
 
 ## 5. Naming Contract (Do Not Rename Without Joint Approval)
