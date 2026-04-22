@@ -43,6 +43,7 @@ train-unsloth = [
 [tool.ruff]
 line-length = 88
 target-version = "py311"
+extend-exclude = ["*.ipynb"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]
