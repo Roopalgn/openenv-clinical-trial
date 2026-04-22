@@ -1,3 +1,14 @@
+---
+title: OpenEnv Clinical Trial Designer
+emoji: 🧬
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+license: apache-2.0
+---
+
 # OpenEnv Clinical Trial Designer
 
 > **OpenEnv Hackathon — Theme #3.1: Professional Tasks (World Modeling)**
