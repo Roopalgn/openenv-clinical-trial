@@ -26,6 +26,7 @@
 **Say:**
 - "No existing OpenEnv environment covers clinical trial design. This is the first."
 - "Verification is objective: scipy.stats power calculations, not LLM judges."
+- "Our power assumptions and boundaries are grounded with rpact-equivalent validation tables (see docs/grounding.md + server/grounding/rpact_validation.json)."
 - "The world is genuinely partially observable — true effect size, responder subgroup, safety profile are all hidden from the agent."
 - "19 actions across 5 clinical phases, with hard FDA prerequisites that block invalid actions."
 - "Domain randomization: budget ±30%, time ±20%, dropout ±15%. Every episode is unique."
@@ -34,7 +35,7 @@
 **Visual:** Architecture diagram (one-page system view)
 
 **Anticipated Q&A:**
-- *"How do you verify without an LLM judge?"* → "scipy.stats calculates power from effect size and sample size. FDA rules are boolean functions. The trial simulation runs the designed trial against hidden ground truth and returns a p-value. All math."
+- *"How do you verify without an LLM judge?"* → "scipy.stats calculates power from effect size and sample size. FDA rules are boolean functions. The trial simulation runs the designed trial against hidden ground truth and returns a p-value. We also keep rpact-equivalent validation tables for boundaries and power sanity checks."
 - *"What makes this harder than just prompting GPT-4?"* → "The ground truth is hidden. You can't reason about the correct sample size without first running Phase I to estimate the effect. It requires sequential decision-making, not single-shot reasoning."
 
 ### Storytelling (30%) — Spend ~60 seconds across hook + close
@@ -89,7 +90,7 @@
 
 | # | Question | Answer |
 |---|----------|--------|
-| 1 | How do you verify trial success without an LLM judge? | scipy.stats power calc + trial simulation against hidden ground truth. Pure math. |
+| 1 | How do you verify trial success without an LLM judge? | scipy.stats power calc + trial simulation against hidden ground truth. Boundary/power assumptions are cross-checked in docs/grounding.md and server/grounding/rpact_validation.json. |
 | 2 | What's novel about this vs. existing clinical trial libs? | First RL environment. No existing OpenEnv env covers trial design. Closest work (TrialGPT) is classification, not sequential decision-making. |
 | 3 | How does the agent discover the hidden subgroup? | Through the `add_biomarker_stratification` action — it observes differential response rates and learns to set inclusion criteria accordingly. |
 | 4 | Isn't 7B too small for this? | The curriculum starts easy (large effects, clear signals). GRPO + LoRA fine-tunes the model specifically for this domain. 7B with task-specific training beats larger models zero-shot. |

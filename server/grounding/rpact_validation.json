@@ -1,0 +1,96 @@
+{
+  "metadata": {
+    "version": "2026-04-22",
+    "alpha_two_sided": 0.05,
+    "target_power": 0.8,
+    "power_method": "normal approximation aligned with server/simulator/power_calculator.py",
+    "cross_check_target": "rpact (R package) fixed and group-sequential design outputs"
+  },
+  "critical_boundaries": {
+    "fixed_design_two_sided": {
+      "alpha": 0.05,
+      "z_critical": 1.959964,
+      "p_critical": 0.05
+    },
+    "obrien_fleming_two_look": [
+      {
+        "look": 1,
+        "information_fraction": 0.5,
+        "z_critical": 2.796,
+        "nominal_alpha_two_sided": 0.0052
+      },
+      {
+        "look": 2,
+        "information_fraction": 1.0,
+        "z_critical": 1.977,
+        "nominal_alpha_two_sided": 0.048
+      }
+    ],
+    "pocock_two_look": [
+      {
+        "look": 1,
+        "information_fraction": 0.5,
+        "z_critical": 2.178,
+        "nominal_alpha_two_sided": 0.0294
+      },
+      {
+        "look": 2,
+        "information_fraction": 1.0,
+        "z_critical": 2.178,
+        "nominal_alpha_two_sided": 0.0294
+      }
+    ]
+  },
+  "scenarios": {
+    "solid_tumor_chemo": {
+      "effect_size_assumptions": {
+        "overall": 0.31,
+        "egfr_enriched": 0.58
+      },
+      "sample_size_grid": [80, 120, 160, 200, 260],
+      "expected_power_overall": [0.285, 0.396, 0.5, 0.592, 0.705],
+      "expected_power_egfr_enriched": [0.737, 0.888, 0.956, 0.984, 0.997],
+      "minimum_n_for_target_power": {
+        "overall": 327,
+        "egfr_enriched": 94
+      },
+      "notes": "Enrichment with EGFR+ criteria changes feasibility from marginal to robust at realistic n."
+    },
+    "autoimmune_biologic": {
+      "effect_size_assumptions": {
+        "optimal_dose": 0.42
+      },
+      "sample_size_grid": [120, 160, 200, 240, 300],
+      "expected_power_optimal_dose": [0.633, 0.757, 0.844, 0.902, 0.953],
+      "minimum_n_for_target_power": {
+        "optimal_dose": 178
+      },
+      "notes": "Power is feasible at medium n when the agent selects the true U-curve optimum dose."
+    },
+    "cns_depression": {
+      "effect_size_assumptions": {
+        "overall": 0.18,
+        "severe_trd_enriched": 0.32
+      },
+      "sample_size_grid": [200, 260, 320, 400, 480],
+      "expected_power_overall": [0.246, 0.306, 0.363, 0.436, 0.504],
+      "expected_power_severe_trd_enriched": [0.619, 0.732, 0.816, 0.892, 0.939],
+      "minimum_n_for_target_power": {
+        "overall": 969,
+        "severe_trd_enriched": 307
+      },
+      "notes": "High placebo/noise context requires enrichment to reach practical power budgets."
+    },
+    "rare_disease_orphan": {
+      "effect_size_assumptions": {
+        "overall": 1.2
+      },
+      "sample_size_grid": [20, 30, 40, 50],
+      "expected_power_overall": [0.765, 0.908, 0.967, 0.989],
+      "minimum_n_for_target_power": {
+        "overall": 22
+      },
+      "notes": "Large effect offsets tiny population cap; adaptive design remains mandatory."
+    }
+  }
+}

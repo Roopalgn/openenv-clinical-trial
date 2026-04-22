@@ -239,13 +239,16 @@ openenv-clinical-trial/
 │   ├── noise_model.py            # Seeded domain randomization (Bio pattern)
 │   ├── phase_detector.py         # Clinical workflow phase classification
 │   ├── judge.py                  # Multi-layer verification (programmatic + LLM)
-│   └── logger.py                 # Episode transcript JSONL + reward CSV logging
+│   ├── logger.py                 # Episode transcript JSONL + reward CSV logging
+│   └── grounding/
+│       └── rpact_validation.json # Scenario power grids + boundary checks
 ├── models.py                     # TrialAction, TrialObservation, TrialState, etc.
 ├── client.py                     # Sync client for training
 ├── train.py                      # GRPO training (TRL + vLLM colocate)
 ├── eval_compare.py               # Base vs trained model comparison
 ├── plot_rewards.py               # Reward curve visualization
 ├── train_colab.ipynb             # Google Colab training notebook
+├── train_kaggle.ipynb            # Kaggle T4/P100 training notebook
 ├── Dockerfile                    # HF Spaces deployment (openenv-base image)
 ├── openenv.yaml                  # OpenEnv v0.2.1 Space config
 ├── ARCHITECTURE.md               # This file
@@ -258,10 +261,19 @@ openenv-clinical-trial/
     ├── curriculum_policy.md
     ├── adaptive_difficulty_spec.md
     ├── verification_spec.md
+      ├── grounding.md
     ├── evaluation_criteria.md
     ├── benchmark_protocol.md
     └── mini_blog_draft.md
 ```
+
+## Statistical Grounding
+
+- External references and reproducibility rationale: [docs/grounding.md](docs/grounding.md)
+- Precomputed scenario validation tables and critical boundaries: [server/grounding/rpact_validation.json](server/grounding/rpact_validation.json)
+- Runtime implementation alignment: [server/simulator/power_calculator.py](server/simulator/power_calculator.py)
+
+These artifacts are used as a sanity-check layer so that power assumptions and boundary values can be audited against rpact-style confirmatory design calculations.
 
 ## Deployment
 
