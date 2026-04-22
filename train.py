@@ -341,7 +341,7 @@ def _dry_run(args: argparse.Namespace) -> None:
                 else float(reward_dict)
             )
             steps += 1
-            obs = next_obs
+            obs = next_obs  # noqa: F841
             if done:
                 break
 
@@ -354,14 +354,21 @@ def _dry_run(args: argparse.Namespace) -> None:
             terminal_outcome="done" if done else "timeout",
         )
         if (ep + 1) % 10 == 0:
-            log.info("Checkpoint marker at episode %d → %s", ep + 1, Path(args.output_dir) / f"checkpoint_ep{ep+1}")
-        log.info("Dry-run episode %d: reward=%.4f, steps=%d", ep + 1, total_reward, steps)
+            log.info(
+                "Checkpoint marker at episode %d → %s",
+                ep + 1,
+                Path(args.output_dir) / f"checkpoint_ep{ep+1}",
+            )
+        log.info(
+            "Dry-run episode %d: reward=%.4f, steps=%d", ep + 1, total_reward, steps
+        )
 
     # Generate plot to verify plot_rewards.py pipeline
     csv_path = Path(args.output_dir) / "reward_log.csv"
     plot_path = Path(args.output_dir) / "reward_curve.png"
     try:
         from plot_rewards import main as plot_main
+
         plot_main(["--csv", str(csv_path), "--out", str(plot_path)])
         log.info("Dry-run plot saved → %s", plot_path)
     except Exception as exc:
@@ -493,7 +500,11 @@ def train(args: argparse.Namespace) -> None:
             terminal_outcome=terminal_outcome,
         )
         if (ep + 1) % 10 == 0:
-            log.info("Checkpoint marker at episode %d → %s", ep + 1, Path(args.output_dir) / f"checkpoint_ep{ep+1}")
+            log.info(
+                "Checkpoint marker at episode %d → %s",
+                ep + 1,
+                Path(args.output_dir) / f"checkpoint_ep{ep+1}",
+            )
 
         # Update curriculum tier from env state
         try:
