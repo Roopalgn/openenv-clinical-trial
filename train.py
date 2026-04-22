@@ -293,6 +293,113 @@ def _grpo_reward_fn(
     return rewards
 
 
+# ---------------------------------------------------------------------------
+# Model-size presets (ROADMAP Push 7 Phase A)
+# ---------------------------------------------------------------------------
+
+MODEL_SIZE_PRESETS: dict[str, dict[str, int]] = {
+    "1.5b": {"lora_rank": 8,  "batch_size": 1, "seq_length": 2048, "grad_accum": 4},
+    "3b":   {"lora_rank": 16, "batch_size": 1, "seq_length": 3072, "grad_accum": 4},
+    "7b":   {"lora_rank": 16, "batch_size": 1, "seq_length": 4096, "grad_accum": 8},
+}
+
+
+def _apply_model_size_preset(args: argparse.Namespace) -> argparse.Namespace:
+    """Override LoRA / batch / seq settings from --model-size preset if given."""
+    if args.model_size is None:
+        return args
+    preset = MODEL_SIZE_PRESETS[args.model_size]
+    args.lora_rank   = preset["lora_rank"]
+    args.batch_size  = preset["batch_size"]
+    args.seq_length  = preset["seq_length"]
+    args.grad_accum  = preset["grad_accum"]
+    log.info(
+        "[model-size preset: %s] lora_rank=%d  batch=%d  seq=%d  grad_accum=%d",
+        args.model_size, args.lora_rank, args.batch_size,
+        args.seq_length, args.grad_accum,
+    )
+    return args
+
+
+# ---------------------------------------------------------------------------
+# Dry-run (smoke-test, no GPU / model required)
+# ---------------------------------------------------------------------------
+
+
+def dry_run(args: argparse.Namespace) -> None:
+    """Run 2 episodes with a random policy to verify the full pipeline.
+
+    Validates: env import → reset/step → reward CSV → plot generation.
+    No model or GPU is required — uses the fallback random action policy.
+    """
+    from server.environment import Environment
+
+    log.info("=== DRY RUN MODE (random policy, no model loaded) ===")
+    env = Environment()
+    reward_csv = RewardCSVLogger(Path(args.output_dir) / "reward_log.csv")
+    episode_rewards: list[float] = []
+
+    n_episodes = min(args.episodes, 2)  # cap at 2 for smoke-test
+    for ep in range(n_episodes):
+        ep_seed = args.seed + ep if args.seed is not None else ep
+        obs = env.reset(seed=ep_seed)
+        total_reward = 0.0
+        steps = 0
+        terminal_outcome = "timeout"
+
+        for step_idx in range(args.max_steps):
+            action = _build_action_from_text("", step_idx)  # triggers fallback random
+            next_obs, reward_dict, done, _info = env.step_full(action)
+            total_reward += (
+                sum(reward_dict.values())
+                if isinstance(reward_dict, dict)
+                else float(reward_dict)
+            )
+            steps += 1
+            obs = next_obs
+            if done:
+                terminal_outcome = "success"
+                break
+
+        episode_rewards.append(total_reward)
+        reward_csv.log(
+            episode=ep,
+            seed=ep_seed,
+            total_reward=total_reward,
+            steps=steps,
+            terminal_outcome=terminal_outcome,
+        )
+        log.info(
+            "Dry-run episode %d/%d | reward=%.4f | steps=%d | outcome=%s",
+            ep + 1, n_episodes, total_reward, steps, terminal_outcome,
+        )
+
+    # Generate reward plot
+    csv_path = Path(args.output_dir) / "reward_log.csv"
+    plot_path = Path(args.output_dir) / "reward_curve.png"
+    try:
+        import subprocess
+        subprocess.run(
+            ["python", "plot_rewards.py",
+             "--input", str(csv_path),
+             "--output", str(plot_path)],
+            check=True,
+        )
+        log.info("Reward curve saved to %s", plot_path)
+    except Exception as exc:
+        log.warning("plot_rewards.py not run (non-fatal): %s", exc)
+
+    log.info("=== DRY RUN COMPLETE — reward CSV: %s ===", csv_path)
+    _write_summary(
+        out_path=Path(args.output_dir) / "training_summary.json",
+        episodes=n_episodes,
+        rewards=episode_rewards,
+        final_tier=0,
+        model_path="dry-run/random-policy",
+        seed=args.seed,
+    )
+
+
 def train(args: argparse.Namespace) -> None:
     """Main training entry point (Req 11.1, 11.2, 11.3, 11.4)."""
     GRPOConfig, GRPOTrainer, LoraConfig, TaskType, torch = _import_trl()
@@ -478,9 +585,33 @@ def _parse_args() -> argparse.Namespace:
         default="./outputs/grpo",
         help="Directory for checkpoints, reward CSV, and training summary",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help=(
+            "Smoke-test mode: run 2 episodes with random policy. "
+            "Validates env → reward CSV → plot without GPU or model."
+        ),
+    )
+    parser.add_argument(
+        "--model-size",
+        choices=["1.5b", "3b", "7b"],
+        default=None,
+        help=(
+            "Auto-configure LoRA rank / batch / seq length for the chosen model size. "
+            "1.5b: rank=8 batch=1 seq=2048 grad=4 | "
+            "3b: rank=16 batch=1 seq=3072 grad=4 | "
+            "7b: rank=16 batch=1 seq=4096 grad=8"
+        ),
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = _parse_args()
-    train(args)
+    args = _apply_model_size_preset(args)
+    if args.dry_run:
+        dry_run(args)
+    else:
+        train(args)
