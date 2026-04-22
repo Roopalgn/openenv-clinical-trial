@@ -12,9 +12,13 @@ LABEL org.opencontainers.image.source="https://github.com/suyashkumar102/openenv
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     HOST=0.0.0.0 \
-    PORT=8000 \
+    PORT=7860 \
     LOG_PATH=./logs \
     CURRICULUM_START_TIER=0
+# PORT=7860 is the HF Spaces default. For local dev use:
+#   docker run -p 8000:7860 ct-env   (maps host:8000 → container:7860)
+# or override:
+#   docker run -e PORT=8000 -p 8000:8000 ct-env
 
 WORKDIR /app
 
