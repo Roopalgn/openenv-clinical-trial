@@ -1,6 +1,6 @@
 # Multi-Layer Verification Specification
 
-> **Gap G2:** KubeSRE used 3-layer verification: (1) real cluster health check, (2) rule-engine constraint validation, (3) LLM judge for qualitative assessment. Our environment needs the same multi-layer approach with clinical trial–specific checks. This document specifies each layer, when it fires, and how conflicts resolve.
+> Multi-layer verification: (1) programmatic ground-truth check, (2) rule-engine constraint validation, (3) optional LLM judge for qualitative assessment. This document specifies each layer, when it fires, and how conflicts resolve.
 
 ## Overview
 
@@ -12,7 +12,6 @@
 
 ### Design Principle: Programmatic First, LLM Last
 
-> **KubeSRE lesson:** The LLM judge is never the sole arbiter. Programmatic checks (pod Running, health endpoints) are the source of truth. The LLM judge adds qualitative signal on top. Our equivalent: `scipy.stats` power calculations and ground-truth comparison are the source of truth. The LLM judge is optional enrichment.
 
 ```
                           ┌─────────────────────┐
@@ -353,7 +352,7 @@ Respond in JSON format:
 }}"""
 ```
 
-### Judge Persona Scaling (from KubeSRE)
+### Judge Persona Scaling
 
 | Tier | Judge Persona | Evaluation Style |
 |------|--------------|------------------|
@@ -370,7 +369,7 @@ The persona is injected into the prompt prefix: `"You are a {persona} clinical t
 1. **Cost** — running an LLM judge per episode during training adds latency and API costs
 2. **Reward hacking** — LLM judges can be gamed by producing verbose/confident-sounding but wrong conclusions
 3. **Reproducibility** — LLM scores are non-deterministic; programmatic checks are deterministic
-4. **KubeSRE lesson** — even KubeSRE used the LLM judge as supplementary, not primary. Pod health checks were the real ground truth.
+4. **Programmatic primacy** — the LLM judge is supplementary, not primary. Objective programmatic checks are the real ground truth.
 
 ---
 

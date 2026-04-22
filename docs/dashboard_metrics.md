@@ -1,6 +1,5 @@
 # Dashboard Metrics Table Format
 
-> **Inspired by:** Bio Experiment's `dashboard.html` with live metric tables and trajectory visualizations. KubeSRE's reward curve plots with trend annotations. VRAM's training dashboard showing loss, reward, and capability radar in real time. The dashboard is both a dev tool (debugging training) and a pitch asset (3-minute demo).
 
 ## Purpose
 
@@ -258,7 +257,6 @@ Per-scenario aggregation from reward CSV + curriculum log.
 
 ## Panel 5: Agent Capability Radar
 
-> **Inspired by:** VRAM's capability radar chart with 6+ axes showing multi-dimensional agent skill.
 
 ### Radar Axes (6 Dimensions)
 

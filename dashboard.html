@@ -26,15 +26,47 @@
             color: var(--text);
             min-height: 100vh;
         }
+
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(135deg, #1a1d27 0%, #1e1b4b 50%, #1a1d27 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 28px 32px 20px;
+            text-align: center;
+        }
+        .hero h1 {
+            font-size: 26px; font-weight: 700;
+            background: linear-gradient(135deg, #e4e4e7, #6366f1);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 6px;
+        }
+        .hero .subtitle {
+            font-size: 13px; color: var(--muted); max-width: 700px; margin: 0 auto 14px;
+            line-height: 1.5;
+        }
+        .hero-stats {
+            display: flex; justify-content: center; gap: 32px; flex-wrap: wrap;
+        }
+        .hero-stat {
+            text-align: center;
+        }
+        .hero-stat .val {
+            font-size: 22px; font-weight: 700; color: var(--accent);
+        }
+        .hero-stat .lbl {
+            font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;
+        }
+
         .header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 16px 24px;
+            padding: 12px 24px;
             border-bottom: 1px solid var(--border);
             background: var(--surface);
         }
-        .header h1 { font-size: 18px; font-weight: 600; }
+        .header h2 { font-size: 14px; font-weight: 600; color: var(--muted); }
         .header .status {
             display: flex; align-items: center; gap: 8px;
             font-size: 13px; color: var(--muted);
@@ -200,8 +232,24 @@
     </style>
 </head>
 <body>
+    <div class="hero">
+        <h1>Clinical Trial Designer</h1>
+        <div class="subtitle">
+            An RL environment where an LLM learns to design clinical trials with hidden ground truth,
+            FDA compliance rules, and real statistical verification — no LLM judge needed.
+        </div>
+        <div class="hero-stats">
+            <div class="hero-stat"><div class="val">19</div><div class="lbl">Actions</div></div>
+            <div class="hero-stat"><div class="val">10</div><div class="lbl">Phases</div></div>
+            <div class="hero-stat"><div class="val">5</div><div class="lbl">Curriculum Tiers</div></div>
+            <div class="hero-stat"><div class="val">15</div><div class="lbl">Reward Components</div></div>
+            <div class="hero-stat"><div class="val">4</div><div class="lbl">Scenarios</div></div>
+            <div class="hero-stat"><div class="val" id="heroTests">249</div><div class="lbl">Tests Passing</div></div>
+        </div>
+    </div>
+
     <div class="header">
-        <h1>🧪 Clinical Trial Designer — Live Dashboard</h1>
+        <h2>Live Training Dashboard</h2>
         <div class="status">
             <div class="dot" id="statusDot"></div>
             <span id="statusText">Connecting...</span>

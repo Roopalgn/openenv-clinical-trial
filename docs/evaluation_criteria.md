@@ -1,11 +1,9 @@
 # Evaluation Criteria & Acceptance Metrics
 
-> **Inspired by:** KubeSRE's reward curves across 3 training runs. Bio Experiment's trajectory datasets with success rate, mean reward, episode length. VRAM's training dashboard with loss, reward, and capability radar chart. All winners tracked multiple complementary metrics, not just reward.
 
 ## Primary Metrics
 
 ### 1. Trial Success Rate
-> *Pattern from KubeSRE: per-episode success tracking across training runs*
 
 The percentage of episodes where the agent's trial design successfully detects the true drug effect (p < 0.05) with adequate statistical power (≥ 0.80).
 
@@ -18,7 +16,6 @@ The percentage of episodes where the agent's trial design successfully detects t
 | Expert (0.80–0.95) | ≥ 5% | Tiny effect, adaptive design required |
 
 ### 2. Reward Trend
-> *Pattern from all 3 winners: reward curves were the primary visual proof of learning*
 
 Positive slope on the per-episode total reward over training. Measured via `plot_rewards.py` trend line.
 
@@ -26,7 +23,7 @@ Positive slope on the per-episode total reward over training. Measured via `plot
 - **Strong**: trend slope > 0.1/episode
 - **Excellent**: rolling average at end > rolling average at start by ≥ 50%
 
-Track per-component trends (like Bio Experiment's decomposed reward logging):
+Track per-component trends (like decomposed reward logging):
 - `r_validity` trend: are FDA violations decreasing?
 - `r_ordering` trend: is phase compliance improving?
 - `r_info_gain` trend: is the agent learning to gather information?
@@ -42,7 +39,6 @@ Agent advances through difficulty tiers as it masters easier scenarios.
 ## Secondary Metrics
 
 ### 4. Phase Workflow Compliance
-> *Pattern from KubeSRE: triage→investigate→fix→verify compliance tracking*
 
 Percentage of episodes where the agent follows the correct clinical trial phase order (literature review → hypothesis → design → enrollment → monitoring → analysis → submission) without skipping phases.
 
@@ -50,7 +46,6 @@ Percentage of episodes where the agent follows the correct clinical trial phase 
 - **Measured by**: `_detect_phase()` + phase-order bonus/penalty in reward
 
 ### 5. FDA Rule Pass Rate
-> *Pattern from Bio Experiment: prerequisite rule pass rate as hard constraint metric*
 
 Percentage of trials that pass all hard FDA constraint checks.
 
@@ -65,7 +60,6 @@ Percentage of trial designs where the agent achieves statistical power ≥ 0.80.
 - **Measured by**: `calculate_power()` on final trial design
 
 ### 7. Budget Efficiency
-> *Pattern from Bio Experiment: resource efficiency as reward component and metric*
 
 Percentage of trials that complete within budget.
 
@@ -73,16 +67,14 @@ Percentage of trials that complete within budget.
 - **Measured by**: `budget_remaining ≥ 0` at episode end
 
 ### 8. Action Diversity
-> *Pattern from VRAM: unique tool usage as evidence of genuine exploration vs. pattern repetition*
 
 Ratio of unique actions used to total actions taken. Higher diversity suggests the agent is exploring intelligently rather than spamming the same action.
 
 - **Target**: ≥ 0.60 diversity ratio (at least 12 of 19 actions used per episode)
 - **Measured by**: `len(set(actions)) / len(actions)` per episode
-- **Visualization**: Action usage heatmap (like VRAM's tool usage heatmap) comparing base vs trained model
+- **Visualization**: Action usage heatmap (like tool usage heatmap) comparing base vs trained model
 
 ### 9. Steps to Completion
-> *Pattern from KubeSRE: efficiency-scaled resolution bonus — faster = higher reward*
 
 Average steps to reach terminal state. Fewer steps (while maintaining quality) indicates efficiency.
 
@@ -90,7 +82,6 @@ Average steps to reach terminal state. Fewer steps (while maintaining quality) i
 - **Measured by**: `step_count` at `done=True`
 
 ### 10. Reproducibility
-> *Pattern from Bio Experiment: seeded NoiseModel guarantees deterministic episodes*
 
 Same seed produces identical episode outcomes.
 
@@ -99,21 +90,19 @@ Same seed produces identical episode outcomes.
 
 ## Tracking & Reporting
 
-> **Inspired by:** KubeSRE's reward curves across 3 training runs. Bio Experiment's trajectory datasets. VRAM's capability radar chart.
 
 All metrics are logged per episode in the reward CSV and JSONL transcript files.
 
-### Episode Transcript JSONL (from KubeSRE pattern)
+### Episode Transcript JSONL
 Each step logged as one JSON line: action, observation, reward breakdown (all 8 components), phase detected, phase order correctness, hidden state snapshot for offline debugging.
 
-### Reward CSV (from Bio Experiment pattern)
+### Reward CSV
 Per-episode: episode_id, scenario_id, tier, total_reward, each component reward, success, power, FDA_pass, steps, action_diversity.
 
 ### Curriculum Log
 Per-episode: tier, scenario_id, difficulty, outcome, advancement decision, mastery stats.
 
 ### Base vs Trained Comparison Table (eval_compare.py)
-> *Pattern from all winners: before/after is the proof that the environment teaches*
 
 ```
 Metric                  Base Model    Trained Model    Delta
@@ -129,8 +118,7 @@ Budget Efficiency       51%           78%              +27%
 Subgroup Identified     8%            41%              +33%
 ```
 
-### Capability Radar Chart (from VRAM pattern)
-> *VRAM showed post-training capability profile expansion as a radar chart*
+### Capability Radar Chart
 
 Visualize 6 axes comparing base vs trained:
 1. Trial success rate
@@ -143,6 +131,6 @@ Visualize 6 axes comparing base vs trained:
 ### Visual Assets for Demo
 1. **Reward curve**: per-episode scatter + rolling average + trend line (from `plot_rewards.py`)
 2. **Component reward trends**: 8 subplots, one per reward component over training
-3. **Action heatmap**: base vs trained action usage patterns (from VRAM)
-4. **Capability radar**: 6-axis comparison (from VRAM)
+3. **Action heatmap**: base vs trained action usage patterns
+4. **Capability radar**: 6-axis comparison
 5. **Curriculum progression**: bar chart showing tier advancement over episodes

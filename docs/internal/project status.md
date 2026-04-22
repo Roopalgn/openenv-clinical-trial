@@ -59,32 +59,62 @@
 | — | `Roopal` | Finalized ARCHITECTURE.md (G10): H100 memory budget, hardware requirements table, complete system diagram (all components from Push 1-5 reflected), checkpoint upload instructions, post-training results template | `ARCHITECTURE.md` |
 | — | `Roopal` | Proofread README: updated documentation links (all 18 docs listed), fixed reward weights to match tuned values, added Live Dashboard section, updated Team section | `README.md` |
 
+### 2026-04-21
+
+| Time | Branch | Change | Files |
+|------|--------|--------|-------|
+| — | `main` | Merged Roopal branch (Push 1–6 docs/specs) into main | 20 files |
+| — | `Suyash` | Suyash PR #8: Complete environment engine — Push 1-6 (models, FastAPI, rule engine, reward, noise model, curriculum, judge, train.py, eval, plot, CI, Docker, tests) | 50 files, 8203 lines |
+| — | `main` | PR review: found 3 issues (shaping not wired, curriculum not advancing, adversarial not wired) | — |
+| — | `Suyash` | Suyash fix commit: wired shaping_bonus, advance_curriculum, AdversarialDesigner into episode_manager; fixed _efficiency_reward hardcoded budget | `server/episode_manager.py`, `server/reward/reward_computer.py`, `Dockerfile` |
+| — | `main` | Merged Suyash PR #8 into main after fix verification | 50 files |
+
+### 2026-04-22
+
+| Time | Branch | Change | Files |
+|------|--------|--------|-------|
+| — | `main` | Integration smoke test on merged codebase: 249/249 tests pass, ruff lint clean, all 6 endpoints verified live (/ping, /reset, /step, /state, /schema, /transcripts) | — |
+| — | `main` | Updated project status with full merge history | `docs/project status.md` |
+
 ---
 
 ## Current Branch Status
 
-| Branch | Last Push | Status |
-|--------|-----------|--------|
-| `main` | Spec files for Suyash (ARCHITECTURE, reward, scenarios, milestones, phase workflow) | Up to date |
-| `Roopal` | Push 4 Roopal tasks complete | All 5 tasks done |
-| `Roopal` | Push 5 Roopal tasks complete | All 5 tasks done |
-| `Roopal` | Push 6 Roopal tasks complete | All 5 tasks done |
-| `Suyash` | Not started | Pending: train.py, eval_compare.py, plot_rewards.py |
+| Branch | Status |
+|--------|--------|
+| `main` | **FULLY MERGED** — all Roopal docs (Push 1–6) + all Suyash code (Push 1–6) |
+| `Roopal` | Archived — merged to main |
+| `Suyash` | Archived — merged to main via PR #8 |
+
+---
+
+## Integration Test Results (2026-04-22)
+
+| Check | Result |
+|-------|--------|
+| `pytest tests/` | 249/249 passed (11.45s) |
+| `ruff check .` | All checks passed |
+| `/ping` | 200 `{"status": "ok"}` |
+| `/reset` (seed=42) | 200, warmup scenario, actions available |
+| `/step` (run_dose_escalation) | 200, reward=-2.0 (correctly blocked by FDA rules) |
+| `/state` | 200, tier=0, scenario=solid_tumor_chemo_warmup |
+| `/schema` | 200, TrialAction + TrialObservation schemas |
+| `/transcripts` | 200, JSONL transcript data |
 
 ---
 
 ## Compute Timeline
 
-- **Now → April 24:** Build environment, reward logic, curriculum, rule engine, simulator, OpenEnv server, docs, dashboard. No GPU needed.
-- **April 25–26 onsite:** Post-training with HuggingFace compute credits. Run GRPO training, generate reward curves, before/after episodes, baseline scores for pitch.
+- **Now → April 24:** Final polish, pitch rehearsal, HF Space prep, blog finalization. No GPU needed.
+- **April 25–26 onsite:** GRPO training with HuggingFace H100 credits. Generate reward curves, before/after episodes, baseline scores for pitch.
 
 ---
 
-## Next Milestones Before Merge to Main
+## Remaining Before Hackathon (Apr 25)
 
-- Finalize environment schemas (action, observation, state) and lock naming contract.
-- Implement objective graders and decomposed reward components.
-- Add curriculum tiers and benchmark/evaluation scripts.
-- Validate container build/run and ping health endpoint.
-- Produce baseline metrics and training-improvement evidence.
+- [ ] Create HuggingFace Space repo and push placeholder
+- [ ] Docker build test locally (if Docker available)
+- [ ] Rehearse 3-min pitch with dashboard demo
+- [ ] Publish mini-blog draft to HF
+- [ ] Fill evaluation_report_template.md after onsite training
 

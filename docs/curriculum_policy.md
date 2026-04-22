@@ -1,14 +1,13 @@
 # Curriculum Progression Policy & Mastery Thresholds
 
-> **Inspired by:** KubeSRE's 3-tier curriculum with automatic advancement (70% success → advance). Bio Experiment's progressively harder parameter ranges gated by mastery. VRAM's round-robin environment rotation ensuring broad coverage. All winners: curriculum is the primary mechanism for preventing reward plateau.
 
 ## Design Principles
 
-1. **Automatic advancement** — agent promotion is triggered programmatically by performance windows, not manually (KubeSRE pattern)
-2. **Per-scenario tracking** — advancement is tracked per scenario type, not globally (Bio pattern: per-organism mastery)
+1. **Automatic advancement** — agent promotion is triggered programmatically by performance windows, not manually
+2. **Per-scenario tracking** — advancement is tracked per scenario type, not globally
 3. **Sliding window** — success rate is computed over the last W episodes per scenario, not lifetime (prevents history dilution)
 4. **No demotion by default** — once advanced, the agent stays at the new tier (GRPO updates ensure policy doesn't catastrophically regress)
-5. **Weak-spot targeting** — after advancement, the curriculum controller preferentially selects the scenario type with the lowest success rate (KubeSRE pattern: adversarial designer targets weak spots)
+5. **Weak-spot targeting** — after advancement, the curriculum controller preferentially selects the scenario type with the lowest success rate
 
 ---
 
@@ -26,7 +25,7 @@
 
 - **Decreasing success requirement** — harder tiers have lower thresholds because scenarios are genuinely harder (smaller effects, tighter budgets, rarer subgroups). A 35% success rate at Advanced means the agent is reliably designing good trials under adversarial conditions.
 - **Increasing window size** — harder tiers require more episodes to prove mastery, preventing lucky streaks from causing premature advancement.
-- **KubeSRE precedent** — KubeSRE used ~70% success to advance across 3 tiers. Our 5-tier system with decreasing thresholds matches the same spirit while accommodating the deeper curriculum.
+- **Threshold rationale** — a ~70% success threshold to advance is standard practice. Our 5-tier system with decreasing thresholds accommodates the deeper curriculum while maintaining meaningful mastery gates.
 
 ---
 
@@ -150,7 +149,6 @@ TIER_CONFIG = {
 
 ## Scenario Selection — Weak-Spot Targeting
 
-> **Inspired by:** KubeSRE's adversarial designer that targets the agent's weakest fault types. Bio Experiment's `design_followup` targeting least-explored organisms.
 
 Instead of round-robin or random scenario selection, 70% of episodes target the agent's weakest scenario type:
 
@@ -186,15 +184,14 @@ def _select_scenario_weakspot(
 
 ### Why 70/30 Split
 
-- **70% weak-spot:** Focuses training compute on scenarios the agent struggles with (KubeSRE: adversarial designer targets failure modes)
+- **70% weak-spot:** Focuses training compute on scenarios the agent struggles with (adversarial designer targets failure modes)
 - **30% random:** Prevents catastrophic forgetting of mastered scenarios and ensures all types get periodic coverage
-- **Bio precedent:** Bio Experiment used similar approach — `design_followup` targeted least-understood organisms rather than random selection
+- **Targeted selection rationale:** focusing on least-understood scenario types rather than random selection accelerates learning
 
 ---
 
 ## Fast-Track Advancement
 
-> **Inspired by:** KubeSRE: 90%+ success rate skips minimum episode requirement
 
 If the agent achieves **≥ 90% success rate** across ALL scenarios in the current window, the `min_episodes` requirement is waived:
 
@@ -305,7 +302,7 @@ This log powers the curriculum progression charts in the dashboard and is essent
 
 ## Expected Training Trajectory
 
-Based on winner analysis (KubeSRE: ~200 episodes to converge, Bio: 150-step training loops):
+Based on empirical estimates (~200 episodes to converge):
 
 | Phase | Episodes | Expected Tier | Key Behavior Changes |
 |-------|----------|--------------|---------------------|

@@ -1,14 +1,13 @@
 # Clinical Trial Phase-Aware Workflow & Scoring
 
-> **Inspired by:** KubeSRE's triage → investigate → fix → verify phase-order bonus (+0.2) and skip penalty. Bio Experiment's prerequisite rules as hard constraints. KubeSRE's judge persona scaling (junior/senior/principal) with curriculum tier.
 
 ## Clinical Trial Workflow Phases
 
-A clinical trial follows a strict sequential workflow. The agent should learn this ordering through reward signal, not hard-coding. Phase-order bonuses and skip penalties teach the agent to follow the correct diagnostic sequence — the same pattern that won 1st place (KubeSRE's triage → investigate → fix → verify).
+A clinical trial follows a strict sequential workflow. The agent should learn this ordering through reward signal, not hard-coding. Phase-order bonuses and skip penalties teach the agent to follow the correct diagnostic sequence.
 
-Our workflow maps KubeSRE's 5-phase SRE pattern to clinical trial design:
+Our workflow maps a sequential decision-making pattern to clinical trial design:
 
-| KubeSRE Phase | Our Phase | Why it maps |
+| Sequential Phase | Our Phase | Why it maps |
 |---|---|---|
 | Triage | literature_review + hypothesis | Understand the problem before acting |
 | Investigation | phase_i_design + phase_i_analysis | Gather data to inform fix |
@@ -181,7 +180,6 @@ Where `r_ordering` = +0.2 if correct order, -0.3 × len(skipped_phases) if phase
 
 ## Judge Persona Scaling by Difficulty
 
-> **Inspired by:** KubeSRE's judge persona system: junior (lenient, gives hints) at low difficulty, senior (standard) at medium, principal (strict, penalizes inefficiency) at expert.
 
 The phase-order evaluation strictness scales with curriculum tier:
 
@@ -193,16 +191,15 @@ The phase-order evaluation strictness scales with curriculum tier:
 | Advanced (0.60–0.80) | **Senior→Principal** | Very strict: phase skip penalty -0.5/skip. Phase bonus +0.1. Penalizes redundant actions within a phase (-0.1 for repeating already-completed actions). |
 | Expert (0.80–0.95) | **Principal** | Harshest: phase skip penalty -0.5/skip. Phase bonus +0.05 (near-zero, expects perfection). Redundancy penalty -0.15. Efficiency penalty for taking >N steps in any phase. |
 
-This mirrors KubeSRE's approach: the junior judge at warmup is lenient and gives hints, while the principal judge at expert actively punishes inefficiency.
+This mirrors approach: the junior judge at warmup is lenient and gives hints, while the principal judge at expert actively punishes inefficiency.
 
 ## Protocol Amendment & Recovery
 
-> **Inspired by:** KubeSRE's mitigation phase — agents can partially fix before full resolution. Bio Experiment's `design_followup` meta-action.
 
 The `request_protocol_amendment` action allows recovery from earlier mistakes:
 - If FDA review fails, agent can amend the protocol and resubmit
 - Amendment costs time and budget (realistic consequence)
-- Successful recovery after failure gets a +0.3 **recovery bonus** (like KubeSRE's mitigation credit)
+- Successful recovery after failure gets a +0.3 **recovery bonus** (like mitigation credit)
 - Maximum 2 amendments per episode (prevents infinite retry loops)
 - This teaches the agent that mistakes are recoverable but costly — a key real-world lesson
 
