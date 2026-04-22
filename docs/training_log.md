@@ -2,24 +2,24 @@
 
 > **Purpose:** Document every bug, surprise, and fix discovered during training.
 > This IS the Statement 4 co-evolution story: environment improved *because* of the agent.
-> **Fill this live during Kaggle training runs.** Judges read this to evaluate self-improvement.
+> **Fill this live during onsite H100 training runs (Apr 25–26).** Judges read this to evaluate self-improvement.
 
 ---
 
-## Run 1 — Kaggle T4, Qwen2.5-1.5B-Instruct (20 episodes)
+## Run 1 — Onsite H100, Qwen2.5-1.5B-Instruct (20 episodes)
 
-**Date:** _(fill)_
-**Platform:** Kaggle (T4 / P100)
+**Date:** `[FILL ONSITE]`
+**Platform:** HuggingFace H100 (80 GB VRAM, BF16)
 **Command:**
 ```bash
-python train.py --model-size 1.5b --model-path Qwen/Qwen2.5-1.5B-Instruct --episodes 20 --seed 42
+python train.py --model-size 1.5b --model-path Qwen/Qwen2.5-1.5B-Instruct --episodes 20 --seed 42 --output-dir outputs/run1
 ```
 
 **Config:**
 | Param | Value |
 |-------|-------|
 | Model | Qwen2.5-1.5B-Instruct |
-| Quantization | 4-bit (Unsloth) |
+| Precision | BF16 (native H100) |
 | LoRA rank | 8 |
 | Batch size | 1 |
 | Seq length | 2048 |
@@ -31,14 +31,14 @@ python train.py --model-size 1.5b --model-path Qwen/Qwen2.5-1.5B-Instruct --epis
 
 | Metric | Value |
 |--------|-------|
-| Final reward (ep 20) | _(fill)_ |
-| Best reward | _(fill)_ |
-| Worst reward | _(fill)_ |
-| Success rate | _(fill)_% |
-| Avg steps/episode | _(fill)_ |
-| Curriculum tier reached | _(fill)_ |
-| Runtime | _(fill)_ hrs |
-| OOM? | No / Yes → fix: _(fill)_ |
+| Final reward (ep 20) | `[FILL ONSITE]` |
+| Best reward | `[FILL ONSITE]` |
+| Worst reward | `[FILL ONSITE]` |
+| Success rate | `[FILL ONSITE]`% |
+| Avg steps/episode | `[FILL ONSITE]` |
+| Curriculum tier reached | `[FILL ONSITE]` |
+| Runtime | `[FILL ONSITE]` hrs |
+| OOM? | No / Yes → fix: `[FILL ONSITE]` |
 
 ### Reward Curve Signal
 
@@ -123,29 +123,29 @@ python train.py --model-size 1.5b --model-path Qwen/Qwen2.5-1.5B-Instruct --epis
 
 ---
 
-## Run 2 — Kaggle T4/P100 (50 episodes, 1.5B OR 20 episodes, 3B)
+## Run 2 — Onsite H100, Scale Up (50 episodes, 3B OR 100 episodes, 1.5B)
 
-**Date:** _(fill)_
-**Decision from Run 1:** _(e.g. "Run 1 showed positive slope → scale to 50 episodes" / "Run 1 flat → debug reward first")_
+**Date:** `[FILL ONSITE]`
+**Decision from Run 1:** `[FILL ONSITE: e.g. "Run 1 showed positive slope → scale to 3B" / "Run 1 flat → debug reward first"]`
 
 **Command:**
 ```bash
-# Option A: Scale episodes (same model)
-python train.py --model-size 1.5b --model-path Qwen/Qwen2.5-1.5B-Instruct --episodes 50 --seed 42
+# Option A: Scale model
+python train.py --model-size 3b --model-path Qwen/Qwen2.5-3B-Instruct --episodes 50 --seed 42 --output-dir outputs/run2
 
-# Option B: Scale model
-python train.py --model-size 3b --model-path Qwen/Qwen2.5-3B-Instruct --episodes 20 --seed 42
+# Option B: Scale episodes (same model)
+python train.py --model-size 1.5b --model-path Qwen/Qwen2.5-1.5B-Instruct --episodes 100 --seed 42 --output-dir outputs/run2
 ```
 
 ### Result Summary
 
 | Metric | Value |
 |--------|-------|
-| Final reward (last ep) | _(fill)_ |
-| Best reward | _(fill)_ |
-| Success rate | _(fill)_% |
-| Curriculum tier reached | _(fill)_ |
-| Improvement vs Run 1 | _(fill)_ |
+| Final reward (last ep) | `[FILL ONSITE]` |
+| Best reward | `[FILL ONSITE]` |
+| Success rate | `[FILL ONSITE]`% |
+| Curriculum tier reached | `[FILL ONSITE]` |
+| Improvement vs Run 1 | `[FILL ONSITE]` |
 
 ---
 
@@ -199,13 +199,13 @@ Observation: _(fill)_
 
 ## Eval Compare Output (Run 1)
 
-> Run: `python eval_compare.py --checkpoint logs/checkpoint_ep20/ --episodes 10`
+> Run: `python eval_compare.py --model-path outputs/run1/checkpoint --episodes 10 --output-dir outputs/eval`
 
 | Policy | Success Rate | Avg Reward | Power ≥ 0.80 | Subgroup Found |
 |--------|-------------|-----------|--------------|----------------|
-| Random baseline | ~5% | -1.5 | 3% | 2% |
-| Run 1 checkpoint | _(fill)_ | _(fill)_ | _(fill)_ | _(fill)_ |
-| Run 2 checkpoint | _(fill, after Run 2)_ | _(fill)_ | _(fill)_ | _(fill)_ |
+| Random baseline | ~5% | `[FILL ONSITE]` | `[FILL ONSITE]` | `[FILL ONSITE]` |
+| Run 1 checkpoint | `[FILL ONSITE]` | `[FILL ONSITE]` | `[FILL ONSITE]` | `[FILL ONSITE]` |
+| Run 2 checkpoint | `[FILL ONSITE]` | `[FILL ONSITE]` | `[FILL ONSITE]` | `[FILL ONSITE]` |
 
 ---
 
@@ -213,7 +213,7 @@ Observation: _(fill)_
 
 > Fill after Run 1. These go directly into `docs/pitch_notes.md` and the mini-blog.
 
-1. **What the agent learned:** _(e.g. "By episode 15, agent reliably performs dose escalation before FDA submission — a behaviour that never appeared in episodes 1–5")_
-2. **What surprised us:** _(e.g. "Agent discovered the EGFR+ enrichment strategy without being told it existed — found it by repeatedly running biomarker stratification actions")_
-3. **What we had to fix:** _(e.g. "Phase skip penalty of -0.3 was too harsh at warmup tier — agent got stuck in local minimum avoiding regulatory actions entirely")_
-4. **What the reward curve shows:** _(e.g. "Clear positive slope from ep 1 (-2.1) to ep 20 (+4.8). Breakpoint at ep 9 aligns with bug #2 fix applied mid-run")_
+1. **What the agent learned:** `[FILL ONSITE]`
+2. **What surprised us:** `[FILL ONSITE]`
+3. **What we had to fix:** `[FILL ONSITE]`
+4. **What the reward curve shows:** `[FILL ONSITE]`
