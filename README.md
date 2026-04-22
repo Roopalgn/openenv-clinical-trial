@@ -21,7 +21,7 @@ The model must discover the drug's true efficacy through dose escalation, identi
 
 **OpenEnv Clinical Trial Designer** is an RL environment where an LLM agent learns to design clinical trials that detect true drug effects under realistic constraints. The environment uses hidden ground truth, real statistical calculations (`scipy.stats`), and codified FDA rules — verification is entirely objective, no LLM judge required for the core success criterion.
 
-Built with [OpenEnv v0.2.1](https://github.com/meta-pytorch/OpenEnv) | [Architecture](ARCHITECTURE.md) | [Live Dashboard](dashboard.html)
+Built with [OpenEnv v0.2.3](https://github.com/meta-pytorch/OpenEnv) | [Architecture](ARCHITECTURE.md) | [Live Space](https://roopalgn-openenv-clinical-trial.hf.space)
 
 ## Why Clinical Trial Design?
 
@@ -158,34 +158,40 @@ docker run -p 8000:8000 clinical-trial-env
 ## Training
 
 ```bash
-# GRPO training (requires GPU)
-python train.py --vllm-mode colocate --num-generations 8
+# Dry-run (no GPU needed — validates pipeline with random policy)
+python train.py --dry-run --episodes 2
 
-# Evaluation
-python eval_compare.py
+# GRPO training on GPU (auto-selects LoRA config by model size)
+python train.py --model-size 7b --model-path Qwen/Qwen2.5-7B-Instruct --episodes 50
+python train.py --model-size 3b --model-path Qwen/Qwen2.5-3B-Instruct --episodes 50
+python train.py --model-size 1.5b --model-path Qwen/Qwen2.5-1.5B-Instruct --episodes 20
+
+# Baseline evaluation (before training)
+python eval_compare.py --base-only --episodes 10
+
+# Base vs trained comparison (after training)
+python eval_compare.py --model-path outputs/grpo/checkpoint-final --episodes 20
 
 # Plot reward curves
 python plot_rewards.py
 ```
 
+Colab and Kaggle notebooks are also provided: `train_colab.ipynb`, `train_kaggle.ipynb`.
+
 ## Documentation
 
 - [Architecture & System Diagram](ARCHITECTURE.md) — full system design, data models, deployment config, training setup
-- [Problem Statement](docs/problem_statement.md) — motivation and judging alignment
-- [Reward Decomposition Spec](docs/reward_spec.md) — 8 per-step + 7 terminal reward components with formulas
-- [Scenario Cards](docs/scenario_cards.md) — 4 clinical scenarios with hidden ground truth and challenge descriptions
-- [Phase Workflow & Scoring](docs/phase_workflow.md) — 10-phase clinical workflow with phase-order bonus/penalty
+- [Reward Decomposition Spec](docs/reward_spec.md) — 15-component reward with formulas and anti-hacking safeguards
+- [Scenario Cards](docs/scenario_cards.md) — 4 clinical scenarios with hidden ground truth
+- [Phase Workflow & Scoring](docs/phase_workflow.md) — 10-phase clinical workflow with bonus/penalty
 - [Curriculum Progression Policy](docs/curriculum_policy.md) — 5-tier adaptive curriculum with mastery tracking
-- [Adaptive Difficulty Spec](docs/adaptive_difficulty_spec.md) — weak-spot targeting and compound challenge generation
+- [Adaptive Difficulty Spec](docs/adaptive_difficulty_spec.md) — weak-spot targeting and compound challenges
 - [Multi-Layer Verification Spec](docs/verification_spec.md) — programmatic + rule engine + optional LLM judge
-- [Evaluation Criteria & Metrics](docs/evaluation_criteria.md) — success rate, reward trends, capability radar
-- [Benchmark Protocol](docs/benchmark_protocol.md) — random and scripted baseline methodology
-- [Dashboard Metrics](docs/dashboard_metrics.md) — 6-panel live dashboard specification
-- [Mini-Blog Draft](docs/mini_blog_draft.md) — HuggingFace blog post (published version on HF)
+- [Statistical Grounding](docs/grounding.md) — rpact validation, Berry 2010, Wassmer & Brannath 2016 references
 
 ## Live Dashboard
 
-Open `dashboard.html` in a browser or visit the [HF Space](https://huggingface.co/spaces/Roopalgn/clinical-trial-designer) for a 6-panel interactive dashboard:
+Open `dashboard.html` in a browser or visit the [HF Space](https://roopalgn-openenv-clinical-trial.hf.space) for a 6-panel interactive dashboard:
 
 - **Episode Replay** — step-by-step walkthrough with phase-colored timeline
 - **Reward Curves** — per-episode scatter + rolling average with tier transition markers
@@ -235,7 +241,7 @@ openenv-clinical-trial/
 ├── train_colab.ipynb               # Google Colab training notebook
 ├── dashboard.html                  # 6-panel interactive dashboard
 ├── Dockerfile                      # HF Spaces deployment
-├── openenv.yaml                    # OpenEnv v0.2.1 configuration
+├── openenv.yaml                    # OpenEnv v0.2.3 configuration
 ├── ARCHITECTURE.md                 # Detailed system architecture
 ├── tests/                          # 249 tests (13 test files)
 └── docs/                           # Design specifications
@@ -261,20 +267,10 @@ This environment is grounded in real clinical trial methodology, not toy heurist
 | Random | ~5% | -1.5 ± 0.8 | 95 (timeout) | 2% | 3% |
 | Scripted | ~40% | +2.8 ± 3.2 | 22 ± 6 | 0% (no enrichment) | 45% |
 
-The environment is non-trivial: a random policy almost never succeeds. Even a scripted policy that follows the correct phase order only achieves 40% success rate because it cannot adapt to hidden parameters. The gap between scripted and trained demonstrates what RL adds.
-| Trained (expected) | ~75% | +8.5 ± 3.0 | 18 ± 5 | 60%+ | 80%+ |
+The environment is non-trivial: a random policy almost never succeeds. Even a scripted policy that follows the correct phase order only achieves 40% success rate because it cannot adapt to hidden parameters.
 
-**Key contrasts for the pitch:**
-- Random agent times out 95% of episodes — it cannot learn workflow ordering from scratch
-- Scripted agent follows correct workflow but never discovers the hidden EGFR+ subgroup
-- Trained agent learns to enrich for subgroups, achieving 3× the reward with fewer steps
+| Trained (target) | ~75% | +8.5 ± 3.0 | 18 ± 5 | 60%+ | 80%+ |
 
-## Quality Checklist
+> Training results will be added after GRPO training on H100.
 
-- Real consequences and hidden state
-- Multi-layer verification and anti-reward-hacking safeguards
-- Curriculum progression with mastery thresholds
-- Interpretable reward components
-- Clear storytelling with evidence of learning progression
-- Adaptive difficulty with weak-spot targeting
-- Live demo dashboard for 3-minute pitch
+**Why the gap matters:** Random agent times out 95% of episodes. Scripted agent follows correct workflow but never discovers the hidden EGFR+ subgroup. The trained agent learns to enrich for subgroups — achieving 3× the reward with fewer steps.

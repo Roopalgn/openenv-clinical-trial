@@ -1,0 +1,20 @@
+{
+  "base_policy": {
+    "success_rate": 0.0,
+    "mean_reward": 147.3842,
+    "mean_episode_length": 50.0,
+    "total_episodes": 5
+  },
+  "trained_policy": null,
+  "improvement": null,
+  "scenario_breakdown": {
+    "base_policy": {
+      "0": {
+        "episodes": 5,
+        "success_rate": 0.0,
+        "mean_reward": 147.3842
+      }
+    },
+    "trained_policy": null
+  }
+}

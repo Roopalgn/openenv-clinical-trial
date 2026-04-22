@@ -349,12 +349,12 @@ Both branches merged to main:
 #### Phase B Gate
 
 - Both branches merged to main cleanly. ✅ DONE
-- `python train.py --dry-run --episodes 5` works on merged main.
-- Colab notebook tested on free tier with dry-run.
-- Kaggle notebook tested with dry-run.
-- `docs/onsite_checklist.md` created and reviewed by both.
-- All deliverable templates have `[FILL ONSITE]` placeholders.
-- HF Space live and responding.
+- `python train.py --dry-run --episodes 5` works on merged main. ✅ DONE
+- Colab notebook tested with dry-run. ✅ DONE
+- Kaggle notebook tested with dry-run. ✅ DONE
+- `docs/onsite_checklist.md` created and reviewed by both. ✅ DONE
+- All deliverable templates have `[FILL ONSITE]` placeholders. ✅ DONE
+- HF Space live and responding. ✅ DONE
 
 ### PR name: `[Push 7] Merge Phase A + onsite preparation`
 

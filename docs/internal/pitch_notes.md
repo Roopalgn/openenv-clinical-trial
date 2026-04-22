@@ -86,6 +86,89 @@
 
 ---
 
+## Demo Episode Scripts
+
+> Replace with real transcripts from training once available. Until then, use these as narrative scaffolding.
+
+### Episode 1 — The Failure (Before Training)
+
+```
+Scenario: solid_tumor_chemo — NSCLC with hidden EGFR+ subgroup
+Budget: $2.5M | Time: 180 days | Hidden: EGFR+ subgroup (35%)
+
+Step 1: set_sample_size(n=20)         → BLOCKED (Phase I not done)  → Reward: -0.15
+Step 2: run_primary_analysis()        → BLOCKED (no protocol)       → Reward: -0.15
+Step 3: submit_to_fda_review()        → BLOCKED (no endpoint set)   → Reward: -0.15
+Step 4: set_primary_endpoint("OS")    → WARNING: no Phase I data    → Reward: -0.05
+... (random flailing for 95 steps, accumulating penalties) ...
+Step 95: TIMEOUT
+
+TOTAL REWARD: -2.5 | Success: No | FDA: 0/6 | Phase compliance: 12% | Subgroup: Not found
+```
+
+**Narration:** "Episode 1. The agent knows nothing. It tries to set a sample size before running Phase I. Tries to analyze results that don't exist. Flails for 95 steps and times out. Reward: -2.5."
+
+### Episode ~8 — The Breakthrough (Learns Workflow)
+
+```
+Scenario: solid_tumor_chemo — Same hidden truth
+
+Step 1-3: run_dose_escalation (50mg → 100mg → 150mg)  → Phase I ✓
+Step 4: estimate_effect_size()                         → Effect: 0.28 ± 0.12
+Step 5: set_primary_endpoint("PFS")                    → Phase II design ✓
+Step 6: set_sample_size(n=200)
+Step 7-9: dosing, control arm, blinding
+Step 10: submit_to_fda_review()                        → PASSED ✓
+Step 11: run_primary_analysis()                        → p=0.048, power=0.65
+Step 12: synthesize_conclusion()
+
+TOTAL REWARD: +3.2 | Success: Yes (marginal) | FDA: 5/6 | Subgroup: Not found
+Key miss: Enrolled general population → diluted EGFR+ signal → barely significant
+```
+
+**Narration:** "Episode 8. The agent learned the workflow. Phase I first, then design, then submit. But it missed the key insight — the drug works 3× better in EGFR+ patients. It enrolled everyone, diluting the signal. Barely significant."
+
+### Episode ~40 — Mastery (Discovers Subgroup Enrichment)
+
+```
+Scenario: solid_tumor_chemo — Harder: Budget $2.0M, Time 160 days
+
+Step 1-3: Dose escalation (50/100/150mg)
+Step 4: observe_safety_signal()         → "Grade 2 rash in 2 patients (EGFR-related)"
+Step 5: estimate_effect_size()          → "3 responders all EGFR+"
+Step 6: add_biomarker_stratification("EGFR")  ← THE KEY DECISION
+  → EGFR+ effect: 0.54 ± 0.15 | EGFR- effect: 0.08 ± 0.12
+Step 7: set_primary_endpoint("PFS")
+Step 8: set_inclusion_criteria("EGFR_positive")  ← ENRICHMENT
+Step 9: set_sample_size(n=80)  → With effect=0.54, 80 EGFR+ patients → power=0.88
+Steps 10-13: dosing, control, randomization, blinding
+Step 14: submit_to_fda_review() → PASSED ✓
+Step 15: run_interim_analysis() → p=0.018 at interim
+Step 16: run_primary_analysis() → p=0.003, power=0.88
+Step 17: synthesize_conclusion() → Correct subgroup, effect within 5% of truth
+
+TOTAL REWARD: +11.2 | Success: STRONG | FDA: 6/6 | Phase: 100% | Subgroup: EGFR+ ✓
+```
+
+**Narration:** "Episode 40. The agent discovered EGFR+ enrichment on its own — a strategy that took clinical researchers decades. 80 targeted patients instead of 200. p=0.003. Reward: +11.2."
+
+### Side-by-Side Comparison Card
+
+```
+              EPISODE 1 (Before)     EPISODE 40 (After)
+Reward:       -2.5                   +11.2
+Steps:        95 (timeout)           17
+Success:      No                     Yes
+p-value:      N/A                    0.003
+Power:        N/A                    0.88
+FDA pass:     0/6                    6/6
+Subgroup:     Not found              EGFR+ ✓
+Phase order:  12% correct            100%
+Budget used:  100% (wasted)          73% (efficient)
+```
+
+---
+
 ## Q&A Prep (Top 10 Expected Questions)
 
 | # | Question | Answer |
