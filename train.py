@@ -294,13 +294,13 @@ def _grpo_reward_fn(
 
 
 # ---------------------------------------------------------------------------
-# Model-size presets (ROADMAP Push 7 Phase A)
+# Model size presets
 # ---------------------------------------------------------------------------
 
 MODEL_SIZE_PRESETS: dict[str, dict[str, int]] = {
-    "1.5b": {"lora_rank": 8,  "batch_size": 1, "seq_length": 2048, "grad_accum": 4},
-    "3b":   {"lora_rank": 16, "batch_size": 1, "seq_length": 3072, "grad_accum": 4},
-    "7b":   {"lora_rank": 16, "batch_size": 1, "seq_length": 4096, "grad_accum": 8},
+    "1.5b": {"lora_r": 8, "batch": 1, "seq_len": 2048, "grad_accum": 4},
+    "3b": {"lora_r": 16, "batch": 1, "seq_len": 3072, "grad_accum": 4},
+    "7b": {"lora_r": 16, "batch": 1, "seq_len": 4096, "grad_accum": 8},
 }
 
 
@@ -309,14 +309,13 @@ def _apply_model_size_preset(args: argparse.Namespace) -> argparse.Namespace:
     if args.model_size is None:
         return args
     preset = MODEL_SIZE_PRESETS[args.model_size]
-    args.lora_rank   = preset["lora_rank"]
-    args.batch_size  = preset["batch_size"]
-    args.seq_length  = preset["seq_length"]
-    args.grad_accum  = preset["grad_accum"]
     log.info(
-        "[model-size preset: %s] lora_rank=%d  batch=%d  seq=%d  grad_accum=%d",
-        args.model_size, args.lora_rank, args.batch_size,
-        args.seq_length, args.grad_accum,
+        "Model size preset '%s': lora_r=%d, batch=%d, seq_len=%d, grad_accum=%d",
+        args.model_size,
+        preset["lora_r"],
+        preset["batch"],
+        preset["seq_len"],
+        preset["grad_accum"],
     )
     return args
 
@@ -326,37 +325,38 @@ def _apply_model_size_preset(args: argparse.Namespace) -> argparse.Namespace:
 # ---------------------------------------------------------------------------
 
 
-def dry_run(args: argparse.Namespace) -> None:
+def _dry_run(args: argparse.Namespace) -> None:
     """Run 2 episodes with a random policy to verify the full pipeline.
 
-    Validates: env import → reset/step → reward CSV → plot generation.
-    No model or GPU is required — uses the fallback random action policy.
+    Skips model loading and GRPO trainer — uses random action cycling instead.
+    Writes reward CSV and generates a plot PNG to confirm the pipeline works.
     """
     from server.environment import Environment
 
-    log.info("=== DRY RUN MODE (random policy, no model loaded) ===")
+    log.info("=== DRY RUN MODE: 2 episodes, random policy, no model loading ===")
+    _apply_model_size_preset(args)
     env = Environment()
     reward_csv = RewardCSVLogger(Path(args.output_dir) / "reward_log.csv")
     episode_rewards: list[float] = []
 
     n_episodes = min(args.episodes, 2)  # cap at 2 for smoke-test
     for ep in range(n_episodes):
-        ep_seed = args.seed + ep if args.seed is not None else ep
+        ep_seed = args.seed + ep
         obs = env.reset(seed=ep_seed)
         total_reward = 0.0
         steps = 0
         terminal_outcome = "timeout"
 
         for step_idx in range(args.max_steps):
-            action = _build_action_from_text("", step_idx)  # triggers fallback random
-            next_obs, reward_dict, done, _info = env.step_full(action)
+            action = _build_action_from_text("", step_idx)  # cycles through actions
+            next_obs, reward_dict, done, _ = env.step_full(action)
             total_reward += (
                 sum(reward_dict.values())
                 if isinstance(reward_dict, dict)
                 else float(reward_dict)
             )
             steps += 1
-            obs = next_obs
+            obs = next_obs  # noqa: F841
             if done:
                 terminal_outcome = "success"
                 break
@@ -369,25 +369,27 @@ def dry_run(args: argparse.Namespace) -> None:
             steps=steps,
             terminal_outcome=terminal_outcome,
         )
+        if (ep + 1) % 10 == 0:
+            log.info(
+                "Checkpoint marker at episode %d → %s",
+                ep + 1,
+                Path(args.output_dir) / f"checkpoint_ep{ep+1}",
+            )
         log.info(
             "Dry-run episode %d/%d | reward=%.4f | steps=%d | outcome=%s",
             ep + 1, n_episodes, total_reward, steps, terminal_outcome,
         )
 
-    # Generate reward plot
+    # Generate plot to verify plot_rewards.py pipeline
     csv_path = Path(args.output_dir) / "reward_log.csv"
     plot_path = Path(args.output_dir) / "reward_curve.png"
     try:
-        import subprocess
-        subprocess.run(
-            ["python", "plot_rewards.py",
-             "--input", str(csv_path),
-             "--output", str(plot_path)],
-            check=True,
-        )
-        log.info("Reward curve saved to %s", plot_path)
+        from plot_rewards import main as plot_main
+
+        plot_main(["--csv", str(csv_path), "--out", str(plot_path)])
+        log.info("Dry-run plot saved → %s", plot_path)
     except Exception as exc:
-        log.warning("plot_rewards.py not run (non-fatal): %s", exc)
+        log.warning("Could not generate plot during dry-run: %s", exc)
 
     log.info("=== DRY RUN COMPLETE — reward CSV: %s ===", csv_path)
     _write_summary(
@@ -402,10 +404,26 @@ def dry_run(args: argparse.Namespace) -> None:
 
 def train(args: argparse.Namespace) -> None:
     """Main training entry point (Req 11.1, 11.2, 11.3, 11.4)."""
+    # Dry-run: verify pipeline without loading model or running GRPO
+    if args.dry_run:
+        _dry_run(args)
+        return
+
     GRPOConfig, GRPOTrainer, LoraConfig, TaskType, torch = _import_trl()
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
     from server.environment import Environment
+
+    # Apply model-size preset
+    preset = MODEL_SIZE_PRESETS[args.model_size]
+    log.info(
+        "Model size preset '%s': lora_r=%d, batch=%d, seq_len=%d, grad_accum=%d",
+        args.model_size,
+        preset["lora_r"],
+        preset["batch"],
+        preset["seq_len"],
+        preset["grad_accum"],
+    )
 
     log.info("Initialising environment...")
     env = Environment()
@@ -421,28 +439,30 @@ def train(args: argparse.Namespace) -> None:
         device_map="auto",
     )
 
-    # LoRA config: rank 16, alpha 32, BF16 (Req 11.1)
+    # LoRA config: rank and alpha from model-size preset (Req 11.1)
     lora_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
-        r=16,
-        lora_alpha=32,
+        r=preset["lora_r"],
+        lora_alpha=preset["lora_r"] * 2,
         lora_dropout=0.05,
         bias="none",
         target_modules=["q_proj", "v_proj"],
     )
 
-    # GRPO config: 8 rollouts × grad_accum=8 (Req 11.1)
+    # GRPO config: batch/grad_accum/seq_len from model-size preset (Req 11.1)
+    save_steps = max(1, min(10, args.episodes // 4))
     grpo_config = GRPOConfig(
         output_dir=args.output_dir,
         num_train_epochs=1,
-        per_device_train_batch_size=1,
-        gradient_accumulation_steps=8,  # grad_accum=8
+        per_device_train_batch_size=preset["batch"],
+        gradient_accumulation_steps=preset["grad_accum"],
         num_generations=args.num_generations,  # 8 rollouts
-        max_completion_length=256,
+        max_completion_length=preset["seq_len"],
         learning_rate=1e-5,
         bf16=True,
         logging_steps=1,
-        save_steps=50,
+        save_steps=save_steps,
+        save_total_limit=3,
         vllm_mode=args.vllm_mode if args.vllm_mode else None,
         seed=args.seed,
     )
@@ -504,6 +524,12 @@ def train(args: argparse.Namespace) -> None:
             steps=steps_taken,
             terminal_outcome=terminal_outcome,
         )
+        if (ep + 1) % 10 == 0:
+            log.info(
+                "Checkpoint marker at episode %d → %s",
+                ep + 1,
+                Path(args.output_dir) / f"checkpoint_ep{ep+1}",
+            )
 
         # Update curriculum tier from env state
         try:
@@ -551,6 +577,12 @@ def _parse_args() -> argparse.Namespace:
         help="HuggingFace model ID or local path",
     )
     parser.add_argument(
+        "--model-size",
+        choices=["1.5b", "3b", "7b"],
+        default="7b",
+        help="Model size preset (auto-configures LoRA rank, batch, seq length)",
+    )
+    parser.add_argument(
         "--episodes",
         type=int,
         default=100,
@@ -588,22 +620,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        default=False,
-        help=(
-            "Smoke-test mode: run 2 episodes with random policy. "
-            "Validates env → reward CSV → plot without GPU or model."
-        ),
-    )
-    parser.add_argument(
-        "--model-size",
-        choices=["1.5b", "3b", "7b"],
-        default=None,
-        help=(
-            "Auto-configure LoRA rank / batch / seq length for the chosen model size. "
-            "1.5b: rank=8 batch=1 seq=2048 grad=4 | "
-            "3b: rank=16 batch=1 seq=3072 grad=4 | "
-            "7b: rank=16 batch=1 seq=4096 grad=8"
-        ),
+        help="Run 2 episodes with random policy to verify pipeline (no training)",
     )
     return parser.parse_args()
 
@@ -612,6 +629,6 @@ if __name__ == "__main__":
     args = _parse_args()
     args = _apply_model_size_preset(args)
     if args.dry_run:
-        dry_run(args)
+        _dry_run(args)
     else:
         train(args)
