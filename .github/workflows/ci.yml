@@ -87,7 +87,7 @@ jobs:
         run: |
           docker run -d \
             --name openenv-ci \
-            -p 8000:8000 \
+            -p 8000:7860 \
             -e LOG_PATH=/tmp/logs \
             openenv-clinical-trial:ci
 
