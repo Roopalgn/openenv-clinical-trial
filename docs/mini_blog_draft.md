@@ -71,7 +71,9 @@ Potential-based shaping (γ·φ(s')) gives gradient without distorting optimal p
 
 ---
 
-## Section 5: What the Agent Learned (50 words)
+## Section 5: What the Agent Learned (`[FILL ONSITE]`)
+
+`[FILL ONSITE: 50 words describing what the agent actually learned. Example below — replace with real observations:]`
 
 The agent independently discovered **biomarker stratification** — enriching the trial for responsive patients rather than powering for everyone. This strategy, which revolutionized oncology in the 2010s, emerged from reward signal alone. It also learned FDA workflow ordering, adaptive sample sizing, and futility stopping.
 
@@ -88,7 +90,7 @@ uvicorn server.app:app --port 8000
 
 **Links:**
 - [Environment on HF Spaces](https://huggingface.co/spaces/Roopalgn/clinical-trial-designer)
-- [Trained Model](https://huggingface.co/Roopalgn/clinical-trial-designer-grpo)
+- [Trained Model](https://huggingface.co/Roopalgn/clinical-trial-designer-grpo) <!-- [FILL ONSITE: verify repo exists after pushing checkpoint] -->
 - [GitHub](https://github.com/Roopalgn/openenv-clinical-trial)
 
 ---

@@ -12,7 +12,7 @@
 | Problem | 0:15–0:40 | Innovation (40%) | "$2.6B per drug, 90% fail. Trial design is partially observable, long-horizon, and has objective ground truth — no LLM judge needed." |
 | Env Demo | 0:40–1:30 | Innovation (40%) | Show architecture diagram → 4 scenarios → hidden ground truth → 19 actions → 10-phase workflow. Emphasize: scipy.stats, FDA rule engine, no shortcuts. |
 | Reward & Curriculum | 1:30–2:00 | Rewards (20%) | Show decomposed reward (8+7 components), potential-based shaping, 5-tier curriculum. "Every component is math-verified, independently debuggable." |
-| Training Results | 2:00–2:40 | Rewards (20%) | Show reward curve (negative → positive), before/after episode, baseline comparison table. "Random: 5%. Scripted: 40%. Trained: 75%." |
+| Training Results | 2:00–2:40 | Rewards (20%) | Show reward curve (negative → positive), before/after episode, baseline comparison table. `[FILL ONSITE: replace example numbers with real data]` "Random: 5%. Trained: [FILL]%." |
 | Close | 2:40–3:00 | Storytelling (30%) | "The agent discovered biomarker stratification on its own — a strategy that took clinical researchers decades to formalize." Show capability radar. |
 
 ---
@@ -58,10 +58,10 @@
 **What judges want:** Observable training progress, reward curves, before/after behavior.
 
 **Say:**
-- "Initial average reward: -1.5. Final average: +8.5. Best single episode: +13.5."
-- "Reward curve shows clear upward trend with curriculum tier transitions marked."
-- Show per-component trends: "r_ordering improves first (learns phase sequence), then r_info_gain (learns to gather data), then r_validity (learns FDA rules)."
-- "Capability radar: random baseline is a tiny polygon near origin. Trained agent fills 80%+ on all axes."
+- "Initial average reward: `[FILL ONSITE]`. Final average: `[FILL ONSITE]`. Best single episode: `[FILL ONSITE]`."
+- "Reward curve shows clear upward trend with curriculum tier transitions marked." `[FILL ONSITE: confirm or adjust]`
+- Show per-component trends: "r_ordering improves first (learns phase sequence), then r_info_gain (learns to gather data), then r_validity (learns FDA rules)." `[FILL ONSITE: verify order from actual data]`
+- "Capability radar: random baseline is a tiny polygon near origin. Trained agent fills `[FILL ONSITE]`%+ on all axes."
 
 **Visual:** Reward curve (scatter + rolling average + tier markers) + Capability radar
 
@@ -99,7 +99,7 @@
 | 7 | How does adaptive difficulty work? | After mastery (>70% success), the environment hardens parameters: smaller effects, tighter budgets, misleading Phase I signals. Targets the agent's specific weak spots. |
 | 8 | What happens when Phase I is misleading? | At Advanced/Expert tier, early cohorts can show contradictory signal due to sampling noise. Agent must run more dose levels before committing to a design. |
 | 9 | How is this different from prompting GPT-4 with trial design instructions? | GPT-4 can generate a trial protocol, but can't iteratively refine based on experimental results. Our agent makes sequential decisions conditioned on noisy observations from experiments it chose to run. |
-| 10 | What's the biggest lesson from training? | [Fill after training] — e.g., "The agent independently discovered that enriching for biomarker subgroups is more sample-efficient than powering for the general population." |
+| 10 | What's the biggest lesson from training? | `[FILL ONSITE]` — e.g., "The agent independently discovered that enriching for biomarker subgroups is more sample-efficient than powering for the general population." |
 
 ---
 
