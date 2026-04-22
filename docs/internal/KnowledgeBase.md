@@ -404,15 +404,31 @@ for each training step:
 ### The training command
 
 ```bash
-# Terminal 1: Environment server
-uv run server
+# Terminal 1: Environment server (or use the HF Space URL)
+uvicorn server.app:app --host 0.0.0.0 --port 8000
 
-# Terminal 2: GRPO training with vLLM acceleration
+# Terminal 2: Dry-run first (random policy, no model loading — validates pipeline)
+python train.py --dry-run --episodes 2 --model-size 1.5b
+
+# Terminal 2: Full GRPO training with vLLM acceleration
 python train.py \
-    --vllm-mode colocate \     # vLLM serves generations, shares GPU with training
-    --num-generations 8 \       # 8 parallel rollouts per step
-    --max-steps 100             # 100 training steps = 800 episodes total
+    --model-path Qwen/Qwen2.5-1.5B-Instruct \   # or 3B/7B
+    --model-size 1.5b \             # sets LoRA rank, batch, seq_len, grad_accum
+    --episodes 100 \                # training episodes
+    --vllm-mode colocate \          # vLLM shares GPU with training
+    --num-generations 8 \            # 8 parallel rollouts per GRPO step
+    --max-steps 50 \                 # steps per episode
+    --seed 42 \                      # reproducibility
+    --output-dir ./outputs/grpo      # checkpoints + reward CSV
 ```
+
+### Model size presets (--model-size flag)
+
+| Preset | LoRA rank | Batch size | Seq length | Grad accum | Target model |
+|--------|-----------|------------|------------|------------|--------------|
+| `1.5b` | 8 | 1 | 2048 | 4 | Qwen2.5-1.5B-Instruct |
+| `3b` | 16 | 1 | 3072 | 4 | Qwen2.5-3B-Instruct |
+| `7b` | 16 | 1 | 4096 | 8 | Qwen2.5-7B-Instruct |
 
 ### Viva Questions — Chapter 6
 
@@ -452,18 +468,19 @@ class ClinicalTrialEnv(Environment):
     @property
     def state(self) -> TrialState          # current episode state
 
-# Create FastAPI app with standard endpoints
-app = create_app(ClinicalTrialEnv, TrialAction, TrialObservation, env_name="clinical_trial")
+# Our actual implementation: FastAPI app in server/app.py
+app = FastAPI(title="Clinical Trial Designer Environment")
 ```
 
 This gives you:
 ```
-POST /reset     → start new episode
-POST /step      → take action, get observation + reward + done
-GET  /state     → current state
-GET  /schema    → action/observation JSON schemas
-WS   /ws        → WebSocket for streaming
-GET  /ping      → health check
+POST /reset     → start new episode (optional seed parameter)
+POST /step      → take action, get StepResponse (observation + reward + done + info)
+GET  /state     → current trial state
+GET  /schema    → TrialAction + TrialObservation JSON schemas
+GET  /transcripts → NDJSON episode transcripts for demo replay
+WS   /ws        → WebSocket for streaming actions
+GET  /ping      → health check ({"status": "ok"})
 ```
 
 ### Deployment
@@ -471,6 +488,8 @@ GET  /ping      → health check
 ```yaml
 # openenv.yaml — tells the platform how to run your environment
 spec_version: 1
+name: clinical_trial_designer
+type: space
 runtime: fastapi
 app: server.app:app
 port: 8000
@@ -478,11 +497,18 @@ port: 8000
 
 ```dockerfile
 # Dockerfile — container that runs on HuggingFace Spaces
-FROM ghcr.io/meta-pytorch/openenv-base:latest
-COPY . /app
-RUN pip install -r requirements.txt
-EXPOSE 8000
-CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "8000"]
+# NOTE: Using python:3.11-slim until ghcr.io/meta-pytorch/openenv-base:0.2.1 is publicly available
+FROM python:3.11-slim
+ENV PORT=7860              # HF Spaces default; local dev: docker run -p 8000:7860
+WORKDIR /app
+COPY pyproject.toml ./
+RUN pip install --no-cache-dir fastapi uvicorn pydantic scipy numpy matplotlib pandas
+COPY server/ ./server/
+COPY models.py entrypoint.sh ./
+RUN chmod +x entrypoint.sh && useradd -m appuser && chown -R appuser /app
+USER appuser
+HEALTHCHECK CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${PORT}/ping')"
+ENTRYPOINT ["./entrypoint.sh"]
 ```
 
 ### Viva Questions — Chapter 7
@@ -491,7 +517,7 @@ CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "8000"]
    **A:** Decouples agent from environment. The agent (LLM + training loop) can run on a GPU machine while the environment runs in Docker anywhere. This also matches real-world deployment where the environment persists as a service.
 
 2. **Q:** What OpenEnv version are we using and why?
-   **A:** v0.2.1. It's the latest stable release required by the hackathon. It provides the `Environment` base class, `create_app` factory, and the standard endpoint contract.
+   **A:** openenv-core==0.2.3. It provides the `Environment` base class and the standard endpoint contract (reset/step/state/schema/ping). Our FastAPI app in `server/app.py` implements these endpoints with additional features like `/transcripts` for demo replay.
 
 3. **Q:** What happens if `/ping` fails during judging?
    **A:** Your submission is dead on arrival. The judges' automated checker hits `/ping` first. No response = disqualified before they even look at your code.
@@ -746,27 +772,34 @@ Total: 55–100 steps per episode
 ## Chapter 11 — Tech Stack and Deployment
 
 ```
-Environment:     openenv-core[core] @ v0.2.1
-Server:          FastAPI + uvicorn
-Training:        HF TRL (GRPOTrainer) + vLLM colocate
-Model:           Qwen3-1.7B or Qwen2.5-7B + LoRA (BF16)
-Deployment:      Docker → HuggingFace Spaces
-Compute:         H100 80GB (training, onsite April 25-26)
-Stats:           scipy.stats (power calculations)
+Environment:     openenv-core==0.2.3 (FastAPI-based RL framework)
+Server:          FastAPI 0.111.0 + uvicorn 0.29+
+Training:        HF TRL 0.29.0 (GRPOTrainer) + vLLM colocate + LoRA (peft ≥0.11)
+Models:          Qwen2.5-1.5B / 3B / 7B-Instruct + LoRA (BF16 on H100)
+Deployment:      Docker (python:3.11-slim) → HuggingFace Spaces (PORT 7860)
+Compute:         H100 80GB (HF credits, onsite April 25-26)
+Stats:           scipy 1.13.0 (power calculations, p-values)
+Data:            numpy 1.26.4, pandas 2.2.2, matplotlib 3.8.4
+Linting:         ruff 0.4.4, pytest 8.2.0
 ```
 
 ### Compute timeline
 
-- **Now → April 24:** Build everything. No GPU needed. Environment, rewards, rules, curriculum, docs, dashboard.
-- **April 25–26 onsite:** Post-training with HuggingFace compute credits on H100. Run GRPO, generate reward curves, capture before/after episodes.
+- **Now → April 24:** Build everything, validate pipeline with `--dry-run`. No GPU training. Environment, rewards, rules, curriculum, docs, dashboard, notebook validation.
+- **April 25–26 onsite:** ALL GRPO training happens here with HuggingFace H100 credits. Run training, generate reward curves, capture before/after episodes, polish deliverables.
+
+> **Rule (confirmed by organisers):** NO training is allowed before April 25. Only dry-run pipeline validation and notebook testing on Kaggle/Colab.
 
 ### Viva Questions — Chapter 11
 
 1. **Q:** What model are you using and why?
-   **A:** Qwen3-1.7B with LoRA. Small enough to train quickly on H100 with GRPO (8 rollouts), large enough to reason about clinical trial design. LoRA keeps trainable parameters small (~1% of total) so training converges faster.
+   **A:** Qwen2.5-Instruct family with LoRA. We have three size presets: 1.5B (fast iteration, ~3 GB VRAM), 3B (middle ground, ~6 GB), 7B (highest quality, ~14 GB BF16). On H100 (80 GB), even 7B is comfortable. We start with 1.5B for fast signal checks, then scale up. LoRA keeps trainable parameters small (~1% of total) so training converges faster.
 
 2. **Q:** Why Docker + HuggingFace Spaces?
-   **A:** Hackathon requirement. The environment must be deployable as a Docker container on HF Spaces. Judges will run it against their evaluation harness.
+   **A:** Hackathon requirement. The environment must be deployable as a Docker container on HF Spaces. Judges will run it against their evaluation harness. Our Space is live at `https://roopalgn-openenv-clinical-trial.hf.space`.
+
+3. **Q:** What endpoints does your server expose?
+   **A:** `POST /reset` (start new episode), `POST /step` (take action), `GET /state` (current state), `GET /schema` (action/observation JSON schemas), `GET /ping` (health check), `GET /transcripts` (episode replay data), `WS /ws` (WebSocket streaming).
 
 ---
 
@@ -817,4 +850,4 @@ Show reward curve improving across training. Show the agent learning to enrich f
 
 ---
 
-> **Last updated:** Push 1 (2026-04-20) — Initial textbook with 12 chapters covering RL basics through project-specific details.
+> **Last updated:** Push 7 (2026-04-22) — Updated tech stack (Qwen2.5 family, openenv-core 0.2.3), training commands (--dry-run, --model-size presets), deployment details (Dockerfile, HF Space live), compute timeline (no training before Apr 25), and viva Q&A throughout.
