@@ -337,12 +337,18 @@ def print_comparison_report(report: dict[str, Any]) -> None:
         log.info("  %s: %s", key, value)
 
     log.info("\nTrained Policy:")
-    for key, value in report["trained_policy"].items():
-        log.info("  %s: %s", key, value)
+    if report["trained_policy"] is not None:
+        for key, value in report["trained_policy"].items():
+            log.info("  %s: %s", key, value)
+    else:
+        log.info("  (not evaluated)")
 
     log.info("\nImprovement:")
-    for key, value in report["improvement"].items():
-        log.info("  %s: %s", key, value)
+    if report["improvement"] is not None:
+        for key, value in report["improvement"].items():
+            log.info("  %s: %s", key, value)
+    else:
+        log.info("  (not evaluated)")
 
     log.info("\nScenario Breakdown by Tier:")
     log.info("\n  Base Policy:")
@@ -350,8 +356,11 @@ def print_comparison_report(report: dict[str, Any]) -> None:
         log.info("    Tier %s: %s", tier, metrics)
 
     log.info("\n  Trained Policy:")
-    for tier, metrics in report["scenario_breakdown"]["trained_policy"].items():
-        log.info("    Tier %s: %s", tier, metrics)
+    if report["scenario_breakdown"]["trained_policy"] is not None:
+        for tier, metrics in report["scenario_breakdown"]["trained_policy"].items():
+            log.info("    Tier %s: %s", tier, metrics)
+    else:
+        log.info("    (not evaluated)")
 
     log.info("\n" + "=" * 70)
 
@@ -363,6 +372,10 @@ def print_comparison_report(report: dict[str, Any]) -> None:
 
 def evaluate(args: argparse.Namespace) -> None:
     """Main evaluation entry point (Req 12.1, 12.2, 12.3, 12.4)."""
+    if not args.base_only and args.model_path is None:
+        log.error("--model-path is required unless --base-only is set")
+        sys.exit(1)
+
     from server.environment import Environment
 
     log.info("Initializing environment...")
@@ -375,9 +388,6 @@ def evaluate(args: argparse.Namespace) -> None:
     # Initialize policies
     log.info("Initializing base (random) policy...")
     base_policy = RandomPolicy(seed=base_seed)
-
-    log.info("Initializing trained policy from: %s", args.model_path)
-    trained_policy = TrainedPolicy(model_path=args.model_path)
 
     # Run base policy episodes
     log.info("Running %d episodes with base policy...", args.episodes)
@@ -395,24 +405,39 @@ def evaluate(args: argparse.Namespace) -> None:
                 result.success,
             )
 
-    # Run trained policy episodes (Req 12.3 — same seeds)
-    log.info("Running %d episodes with trained policy...", args.episodes)
-    trained_results: list[EpisodeResult] = []
-    for i, seed in enumerate(episode_seeds):
-        result = run_episode(env, trained_policy, seed, args.max_steps, i)
-        trained_results.append(result)
-        if (i + 1) % 10 == 0 or i == 0:
-            log.info(
-                "  Trained episode %d/%d | reward=%.4f | length=%d | success=%s",
-                i + 1,
-                args.episodes,
-                result.total_reward,
-                result.episode_length,
-                result.success,
-            )
+    if args.base_only:
+        # Build base-only report without running trained policy
+        base_report = generate_comparison_report(base_results, [])
+        report = {
+            "base_policy": base_report["base_policy"],
+            "trained_policy": None,
+            "improvement": None,
+            "scenario_breakdown": {
+                "base_policy": base_report["scenario_breakdown"]["base_policy"],
+                "trained_policy": None,
+            },
+        }
+    else:
+        # Run trained policy episodes (Req 12.3 — same seeds)
+        log.info("Initializing trained policy from: %s", args.model_path)
+        trained_policy = TrainedPolicy(model_path=args.model_path)
+        log.info("Running %d episodes with trained policy...", args.episodes)
+        trained_results: list[EpisodeResult] = []
+        for i, seed in enumerate(episode_seeds):
+            result = run_episode(env, trained_policy, seed, args.max_steps, i)
+            trained_results.append(result)
+            if (i + 1) % 10 == 0 or i == 0:
+                log.info(
+                    "  Trained episode %d/%d | reward=%.4f | length=%d | success=%s",
+                    i + 1,
+                    args.episodes,
+                    result.total_reward,
+                    result.episode_length,
+                    result.success,
+                )
 
-    # Generate and output comparison report (Req 12.2)
-    report = generate_comparison_report(base_results, trained_results)
+        # Generate and output comparison report (Req 12.2)
+        report = generate_comparison_report(base_results, trained_results)
     print_comparison_report(report)
 
     # Write report to JSON file
@@ -434,7 +459,8 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--model-path",
-        required=True,
+        required=False,
+        default=None,
         help="Path to trained model checkpoint (Req 12.4)",
     )
     parser.add_argument(
@@ -459,6 +485,11 @@ def _parse_args() -> argparse.Namespace:
         "--output-dir",
         default="./outputs/eval",
         help="Directory for evaluation report output",
+    )
+    parser.add_argument(
+        "--base-only",
+        action="store_true",
+        help="Run only the random base policy (no trained model required)",
     )
     return parser.parse_args()
 
