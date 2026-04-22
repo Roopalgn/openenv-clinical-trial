@@ -1,14 +1,13 @@
 # Reward Decomposition Specification
 
-> **Inspired by:** Bio Experiment's 6-component decomposed reward (validity + ordering + info_gain + efficiency + novelty + penalty + shaping). KubeSRE's per-step LLM judge + repeat penalty + resolution bonus + phase-order bonus. All winners: clear separation between success (+3 to +14) and failure (-2 to -3) for GRPO variance.
 
 ## Design Principles
 
-1. **Decomposed** — every reward component is independently verifiable and debuggable (Bio pattern)
-2. **Math-verified** — core success is determined by scipy.stats, not LLM (KubeSRE pattern)
+1. **Decomposed** — every reward component is independently verifiable and debuggable
+2. **Math-verified** — core success is determined by scipy.stats, not LLM
 3. **High variance** — GRPO needs clear separation between good (-3) and great (+14) episodes
 4. **Shaped** — potential-based shaping gives gradient toward progress without changing optimal policy
-5. **Phase-aware** — correct workflow ordering is rewarded (KubeSRE pattern)
+5. **Phase-aware** — correct workflow ordering is rewarded
 
 ## Reward Formula
 
@@ -50,7 +49,7 @@ r_terminal = (
 R_episode = Σ(r_step_t for t in 1..T) + r_terminal
 ```
 
-On **timeout** (step_count >= max_steps without reaching conclusion): wipe accumulated step rewards, set `R_episode = -2.0` total. This prevents reward farming from endless episodes (KubeSRE pattern).
+On **timeout** (step_count >= max_steps without reaching conclusion): wipe accumulated step rewards, set `R_episode = -2.0` total. This prevents reward farming from endless episodes.
 
 ---
 
@@ -58,7 +57,6 @@ On **timeout** (step_count >= max_steps without reaching conclusion): wipe accum
 
 ### 1. `r_validity` — FDA Rule Compliance
 
-> *Pattern from Bio Experiment: prerequisite rules as hard constraints with binary pass/fail*
 
 | Condition | Reward |
 |-----------|--------|
@@ -84,7 +82,6 @@ FDA_RULES = {
 
 ### 2. `r_ordering` — Phase-Order Scoring
 
-> *Pattern from KubeSRE: +0.2 for correct triage→investigate→fix→verify sequence*
 
 | Condition | Reward |
 |-----------|--------|
@@ -96,14 +93,13 @@ FDA_RULES = {
 
 **Verification:** `_detect_phase(action, history)` classifies action, compares against `PHASE_ORDER` map. See `phase_workflow.md` for full logic.
 
-**Judge persona scaling (from KubeSRE):**
+**Judge persona scaling:**
 - Warmup (< 0.25): junior — allows 1 skip without penalty, gives hints
 - Intermediate (0.25–0.60): senior — standard penalties
 - Expert (> 0.60): principal — harsher penalties (-0.5/skip), efficiency penalties
 
 ### 3. `r_info_gain` — Information Gained
 
-> *Pattern from Bio Experiment: r_info_gain weighted at 0.4 — the largest per-step component*
 
 Measures how much the agent learned about hidden ground truth from its action.
 
@@ -125,7 +121,6 @@ Measures how much the agent learned about hidden ground truth from its action.
 
 ### 4. `r_efficiency` — Budget/Time Efficiency
 
-> *Pattern from Bio Experiment: resource efficiency as both reward component and metric*
 
 ```python
 def compute_efficiency(state):
@@ -146,7 +141,6 @@ def compute_efficiency(state):
 
 ### 5. `r_novelty` — Action Diversity Bonus
 
-> *Pattern from VRAM: unique tool usage as evidence of genuine exploration*
 
 ```python
 def compute_novelty(action, history):
@@ -155,7 +149,7 @@ def compute_novelty(action, history):
     return 0.0
 ```
 
-Additionally, **repeat penalty** (from KubeSRE):
+Additionally, **repeat penalty**:
 ```python
 def compute_repeat_penalty(action, history):
     recent = history[-3:]  # last 3 actions
@@ -167,7 +161,6 @@ def compute_repeat_penalty(action, history):
 
 ### 6. `r_penalty` — Soft Constraint Violations
 
-> *Pattern from Bio Experiment: -0.15 per violation for soft rules*
 
 | Violation | Penalty |
 |-----------|---------|
@@ -188,12 +181,11 @@ See [Potential-Based Shaping Function](#potential-based-shaping-function) sectio
 
 ### `r_terminal_success` — Core Trial Outcome
 
-> *Pattern from KubeSRE: pod Running = ground truth. For us: p < 0.05 = ground truth.*
 
 ```python
 def compute_terminal_success(trial_result, ground_truth):
     if trial_result.p_value < ground_truth.alpha:
-        # Efficiency bonus: fewer steps = higher reward (KubeSRE pattern)
+        # Efficiency bonus: fewer steps = higher reward
         step_ratio = 1.0 - (steps_taken / max_steps)
         return 5.0 + (2.0 * step_ratio)  # +5.0 to +7.0
     else:
@@ -208,7 +200,6 @@ def compute_terminal_success(trial_result, ground_truth):
 
 ### `r_terminal_calibration` — Ground Truth Match
 
-> *Pattern from Bio Experiment: calibration score (4.0 weight) comparing claims to hidden truth*
 
 ```python
 def compute_terminal_calibration(agent_conclusion, ground_truth):
@@ -288,14 +279,13 @@ def compute_terminal_futility(agent_stopped_early, trial_result):
     if agent_stopped_early and trial_result.would_have_failed:
         return +1.0  # Smart early stop
     elif agent_stopped_early and trial_result.would_have_succeeded:
-        return -1.5  # Stopped a winner — bad call
+        return -1.5  # Stopped a successful trial — bad call
     else:
         return 0.0  # Ran to completion (normal)
 ```
 
 ### `r_terminal_overconf` — Overconfidence Penalty
 
-> *Pattern from Bio Experiment: -0.5 per high-confidence wrong claim*
 
 ```python
 def compute_terminal_overconfidence(agent_conclusions, ground_truth):
@@ -326,7 +316,7 @@ GRPO with 8 rollouts needs the top and bottom to be clearly separated. A range o
 
 ## Potential-Based Shaping Function
 
-> **Gap G11:** All winners used potential-based shaping. This section defines φ(s) for clinical trial state.
+> **Rationale:** Potential-based shaping provides gradient toward progress without changing the optimal policy. This section defines f(s) for clinical trial state.
 
 ### Theory
 

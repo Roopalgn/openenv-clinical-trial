@@ -1,6 +1,5 @@
 # Scenario Cards — Clinical Trial Designer
 
-> **Inspired by:** Bio Experiment's 4 curated scenarios with paper references (DOIs), true DE genes with log2FC values, and hidden ground-truth mechanisms. Each scenario has a unique challenge, realistic constraints, and literature-backed biology. KubeSRE's adversarial scenarios targeting different fault types. All winners: scenarios span easy→hard for curriculum.
 
 ## Overview
 
@@ -533,4 +532,4 @@ Shows which parameter knobs create difficulty at each tier:
 | `time` | 1.3× | 1.1× | 1× | 0.9× | 0.7× |
 | `site_variability` | 0.5× | 0.7× | 1× | 1.2× | 1.5× |
 
-Multipliers are applied to the scenario's base values by `NoiseModel` with additional ±random jitter (from Bio Experiment's domain randomization pattern).
+Multipliers are applied to the scenario's base values by `NoiseModel` with additional ±random jitter (from domain randomization pattern).
