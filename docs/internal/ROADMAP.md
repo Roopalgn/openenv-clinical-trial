@@ -346,11 +346,18 @@
 
 #### Kaggle Session Strategy
 
-- **Session 1 (Apr 23 morning):** Merge branches to main + Run 1 (20 episodes, 1.5B). ~4 hrs.
+- ~~**Session 1 (Apr 23 morning):** Merge branches to main~~ ✅ DONE (merged Apr 22) + Run 1 (20 episodes, 1.5B). ~4 hrs.
 - **Session 2 (Apr 23 evening):** Run 2 (50 episodes, 1.5B) OR Run 2 (20 episodes, 3B). ~6 hrs.
 - **Session 3 (Apr 24, if needed):** Final run with tuned reward weights if earlier runs found bugs. ~4 hrs.
 - **Total Kaggle quota used:** ~14 hrs out of 30 hrs/week. Leaves buffer for reruns.
 - **Fallback:** If Kaggle has issues, switch to Colab free tier for 1.5B runs.
+
+#### Branch Merge Status ✅ COMPLETE (Apr 22)
+
+Both branches merged to main:
+- **Suyash branch** (6 commits): `train.py` --dry-run + --model-size + dynamic save_steps, `eval_compare.py` --base-only, pyproject.toml unsloth isolation, Dockerfile PORT 7860, CI port fix. Conflict in train.py resolved (kept Suyash's _dry_run + direct plot import, merged back _apply_model_size_preset + terminal_outcome + _write_summary from main).
+- **Roopal branch**: dry-run output artifacts (`outputs/grpo/reward_log.csv`, `outputs/grpo/training_summary.json`), train.py plot arg fix (--csv/--out).
+- **Random policy baseline established:** mean reward −61.6, 2 episodes, tier 0.
 
 #### Phase B Gate
 
@@ -475,7 +482,7 @@
 | HF H100 credits delayed or limited | Push 8 | Low | Critical | We already have Kaggle pre-training results. Onsite becomes polish + deliverables with existing data. |
 | Docker image fails on HF Spaces | Push 7 | Low | High | Already validated. Space is live. Have local demo backup. |
 | TRL version incompatibility with vLLM | Push 7 | Low | Medium | Pinned in pyproject.toml. Tested in `--dry-run`. |
-| Merge conflicts between roopal + Suyash | Push 7 | Low | Medium | Different files touched. Merge early in Phase B. |
+| Merge conflicts between roopal + Suyash | Push 7 | ~~Low~~ | ~~Medium~~ | ✅ RESOLVED — merged Apr 22, train.py conflict resolved manually. |
 | Pipeline bug during first real training | Push 7 | Medium | Medium | Dry-run validated (−61.6 baseline). Real training may surface edge cases — document as co-evolution. |
 
 ## 4. Pre-Merge Checklist
@@ -517,7 +524,7 @@
 - [x] CI all green (lint, format, pytest 249/249, Docker).
 
 #### Phase B: Pre-Training (Apr 23–24)
-- [ ] Both branches merged to main cleanly.
+- [x] Both branches merged to main cleanly (Apr 22 — Suyash + roopal merged, train.py conflict resolved).
 - [ ] Colab notebook tested on free tier (T4) with real 1.5B training (5 episodes).
 - [ ] Kaggle notebook tested with real 1.5B training (5 episodes).
 - [ ] At least 1 GRPO training run (1.5B, 20+ episodes) completed with reward CSV.
