@@ -21,26 +21,23 @@
 
 ## Roopal
 
-- [ ] **Test `train_colab.ipynb` on Colab free tier** — open in Colab, run with `--dry-run`. Verify it connects to HF Space, runs 2 episodes, produces CSV. If Qwen2.5-7B setup cell fails on T4, add a 1.5B + Unsloth 4-bit fallback cell.
-- [ ] **Create proper `train_kaggle.ipynb`** — currently empty (0 bytes). Copy structure from `train_colab.ipynb`, adapt for Kaggle (different pip install, different env vars). Test with `--dry-run` on Kaggle.
-- [ ] **Prepare deliverable templates** — add `[FILL ONSITE]` placeholders in `docs/mini_blog_draft.md` and `docs/internal/pitch_notes.md` for reward curves, episode transcripts, and real numbers.
-- [ ] **Create `docs/onsite_checklist.md`** — exact terminal commands for onsite:
-  - `git clone` + `pip install` sequence for H100 environment
-  - `HF_TOKEN` and env var setup
-  - Model size fallback ladder: try 7B → 3B → 1.5B
-  - Expected runtimes per model size on H100
-  - Checkpoint frequency and disk budget
-- [ ] **Prepare `docs/training_log.md` template** — columns ready for Statement 4 bugs (timestamp, bug, fix, impact on reward).
+- [x] **Fix `train_colab.ipynb`** — fixed API signatures (seed not tier), added DRY_RUN toggle, MODEL_PRESETS, correct ENV_URL, reward dict handling. Now matches train_kaggle.ipynb structure.
+- [ ] **Test `train_colab.ipynb` on Colab free tier** — open in Colab, set `DRY_RUN = True`, run all cells. Verify env connection + dry-run CSV output.
+- [x] **Create proper `train_kaggle.ipynb`** — 22-cell notebook with DRY_RUN toggle, MODEL_PRESETS, kaggle_secrets for HF auth.
+- [ ] **Test `train_kaggle.ipynb` on Kaggle** — set `DRY_RUN = True`, run all cells. Verify env connection + dry-run CSV output.
+- [x] **Prepare deliverable templates** — `[FILL ONSITE]` placeholders added to `docs/mini_blog_draft.md` and `docs/internal/pitch_notes.md`.
+- [x] **Create `docs/onsite_checklist.md`** — Phase 0-5 terminal commands, model fallback ladder, runtimes, disk budget.
+- [x] **Prepare `docs/training_log.md` template** — updated for onsite H100, `[FILL ONSITE]` placeholders.
 - [ ] **Study `docs/internal/resources.md`** — reward engineering best practices, common GRPO pitfalls, organiser Q&A.
 
 ## Suyash
 
-- [ ] **Run `train.py --dry-run --episodes 5 --model-size 1.5b`** on merged main — verify CSV, JSON, all correct.
-- [ ] **Run `train.py --dry-run --episodes 5 --model-size 3b`** and `7b` — verify presets apply correctly.
-- [ ] **Run `eval_compare.py --base-only --episodes 5`** — verify baseline JSON report.
-- [ ] **Stress-test resume logic** — run with `--episodes 1`, check checkpoint files, verify `--episodes 100` dry-run handles large count.
-- [ ] **Verify HF Space** — hit `/ping`, `/reset`, `/step`, `/state` from a script. Confirm all endpoints respond.
-- [ ] **Install matplotlib locally** (or verify it's in the pip install for onsite) — dry-run warned `No module named 'matplotlib'` for plot generation.
+- [x] **Run `train.py --dry-run --episodes 5 --model-size 1.5b`** on merged main — verified CSV, JSON correct.
+- [x] **Run `train.py --dry-run --episodes 5 --model-size 3b`** and `7b` — verified presets apply correctly.
+- [x] **Run `eval_compare.py --base-only --episodes 5`** — verified baseline JSON report.
+- [x] **Stress-test resume logic** — verified checkpoint files and large episode count.
+- [x] **Verify HF Space** — all endpoints (`/ping`, `/reset`, `/step`, `/state`) respond.
+- [x] **Install matplotlib locally** — verified available for onsite.
 
 ## Joint
 
