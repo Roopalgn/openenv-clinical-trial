@@ -1,50 +1,94 @@
 # OpenEnv Clinical Trial Designer - Detailed Roadmap
 
-## 0. Gap Analysis vs Winners (Kube SRE Gym, Bio Experiment, Voyager-VRAM)
+## 0. Gap Analysis
 
-| # | Gap | Winner Evidence | Severity |
-|---|-----|----------------|----------|
-| G1 | No ground-truth verification system (hidden latent state checked programmatically) | KubeSRE: real cluster health checks; BioExp: hidden DE genes + NoiseModel | CRITICAL |
-| G2 | No multi-layer verification (programmatic + LLM judge) | KubeSRE: health check + LLM judge + phase-aware scoring | CRITICAL |
-| G3 | No domain randomization / noise injection | BioExp: budget ±30%, time ±20%, technical noise, batch effects | HIGH |
-| G4 | No adversarial / adaptive difficulty designer | KubeSRE: Claude designs incidents targeting weak spots | HIGH |
-| G5 | No full GRPO train.py with LoRA + vLLM colocate + reward CSV logging | All 3 winners shipped complete training scripts | HIGH |
-| G6 | No Colab training notebook | All 3 winners; judging minimum requirement | HIGH |
-| G7 | No openenv.yaml or OpenEnv base Docker image usage | All 3 winners used openenv.yaml + `ghcr.io/meta-pytorch/openenv-base` | HIGH |
-| G8 | No reward visualization / plot script | KubeSRE: plot_rewards.py; BioExp: dashboard.html | MEDIUM |
-| G9 | No eval_compare.py (base vs trained side-by-side) | KubeSRE: eval.py; BioExp: eval_compare.py | MEDIUM |
-| G10 | No ARCHITECTURE.md or design doc | KubeSRE: ARCHITECTURE.md, DESIGN_ADVERSARIAL_JUDGE.md | MEDIUM |
-| G11 | No potential-based reward shaping γ·(φ(s')−φ(s)) | All winners used it per comparison.md reward pattern | MEDIUM |
-| G12 | No mini-blog on HF or mini-video on YouTube | Judging minimum requirement | HIGH |
-| G13 | No phase-aware clinical workflow scoring (like SRE triage→investigate→fix→verify) | KubeSRE: _detect_phase + phase-order bonus/penalty | MEDIUM |
-| G14 | No working demo dashboard for live pitch | BioExp: dashboard.html + dashboard.py; VRAM: visual proof | MEDIUM |
-| G15 | No episode transcript JSONL with full conversation history | KubeSRE: episode_transcripts.jsonl + agent_transcripts.jsonl | MEDIUM |
+### G1–G15: ALL CLOSED (Push 1–6 fully merged, 249/249 tests pass)
 
-### G1–G15 Status: ALL CLOSED (Push 1–6 fully merged, 249/249 tests pass)
+### G16–G22: Post-Merge Gaps (identified Apr 22)
 
-### Post-Merge Gaps (G16–G22) — Identified Apr 22 via winner deep-dive
+| # | Gap | Status | Notes |
+|---|-----|--------|-------|
+| G16 | No actual training run | ⏳ ONSITE | All training Apr 25–26 on HF H100 |
+| G17 | No grounding analog | ✅ CLOSED | rpact_validation.json + grounding.md |
+| G18 | HF Space not deployed | ✅ CLOSED | Live at roopalgn-openenv-clinical-trial.hf.space |
+| G19 | Mini-blog not published | ⏳ ONSITE | Draft exists, fill with real data |
+| G20 | Notebooks untested | ✅ CLOSED | Both Colab + Kaggle dry-run tested |
+| G21 | No co-evolution story | ⏳ ONSITE | Requires real training bugs |
+| G22 | Rule-based adversarial | ✅ ACCEPTABLE | Rule-based is defensible |
 
-| # | Gap | Winner Evidence | Severity | Rubric Weight |
-|---|-----|----------------|----------|---------------|
-| G16 | No actual training run — zero reward curves, zero before/after episodes | KubeSRE: 3 training runs with reward curves + failure analysis; BioExp: trajectory datasets; EcomRLVE: trajectory generation | CRITICAL | 20% (Showing Improvement) + 30% (Storytelling) — **all training onsite Apr 25–26 on HF H100** |
-| G17 | No grounding in validated clinical trial simulator (no "WOFOST" analog) | KubeSRE: real GKE cluster; BioExp: Scanpy/DESeq2 references; EcomRLVE: 2M real Amazon products | MEDIUM | Weakens 40% (Environment Innovation) defensibility |
-| G18 | No HF Space deployed — submission requires GitHub repo + HF Space URL | All 3 winners deployed to HF Spaces | HIGH | Submission requirement |
-| G19 | Mini-blog not published on HuggingFace (draft exists in docs/mini_blog_draft.md) | All winners had published deliverables | HIGH | Minimum requirement |
-| G20 | Colab notebook untested on free tier — organizers provide HF H100 credits, NOT Colab credits | KubeSRE: kube_sre_gym_colab.ipynb tested; BioExp: multiple notebooks | MEDIUM | Minimum requirement |
-| G21 | No environment co-evolution story (cannot exist without actual training runs) | KubeSRE: 3 bugs discovered during training became Statement 4 narrative | CRITICAL | Statement 4 self-improvement |
-| G22 | AdversarialDesigner is rule-based templates, not LLM-generated like KubeSRE's Claude designer | KubeSRE: Claude generates targeted multi-fault incidents (483 LOC adversarial_designer.py) | LOW | Nice-to-have; rule-based is defensible |
+### G23–G28: CODE-LEVEL GAPS — Validated Apr 23 (Codex analysis confirmed)
 
-### Submission Checklist (from hack_info.md — ALL mandatory)
+These are **real architectural weaknesses** in our codebase that competitors don't have. All 6 were independently verified against source code.
 
-- [ ] GitHub repo (public, clean, with training results)
-- [ ] HF Space URL (deployed, `/ping` responds)
-- [ ] Mini-blog on HuggingFace OR mini-video on YouTube (< 2 minutes)
-- [ ] Training script using Unsloth or HF TRL in Colab
-- [ ] Observable training progress (reward curves, before/after behavior)
-- [ ] 3-minute pitch + 2-minute Q&A prepared
-- [ ] Valid government-issued ID + college/company ID for venue entry
+| # | Gap | File(s) | Evidence | Severity | Fix Effort |
+|---|-----|---------|----------|----------|------------|
+| G23 | **Phase system not authoritative** — `transition_engine.py` never updates `latent.episode_phase`; it stays `"literature_review"` for the entire episode | `server/simulator/transition_engine.py`, `server/episode_manager.py` | `test_integration.py` explicitly asserts phase stays `literature_review` | **P0** | ~2hr |
+| G24 | **Latent biology under-instantiated** — Scenarios describe biomarkers/dose-response but latent state has `true_responder_criteria=[]`, `true_dose_response={}`, `true_mechanism="unknown"` | `server/episode_manager.py` reset(), `server/curriculum/scenarios.py` | Output generator has dead code paths for dose-response hints | **P0** | ~3hr |
+| G25 | **Adversarial curriculum underfed** — `analyze_failures()` receives `true_effect_size=None`, `dropout_rate=None`; biomarker signal completely missing | `server/episode_manager.py`, `server/curriculum/adversarial_designer.py` | small_effect/high_dropout counters never increment | **P1** | ~1hr |
+| G26 | **trainer.train() never called** — `_trainer = GRPOTrainer(...)` is marked `noqa: F841` (unused variable); manual rollout loop drives logging but does NO weight updates | `train.py` L471, L497–550 | `_grpo_reward_fn()` defined but never integrated | **P0** | ~2hr |
+| G27 | **Judge is stage-insensitive** — checks power ≥ 0.80 and p-value < 0.05 on every step, even during early design before any patients enrolled | `server/judge.py` L347–400 | Power check at n=1 is meaningless; creates hindsight-based feedback | **P1** | ~1hr |
+| G28 | **Single session only** — `SUPPORTS_CONCURRENT_SESSIONS=False`, global `_manager = EpisodeManager()` | `server/environment.py`, `server/app.py` | Not critical for hackathon demo | **P2** | ~2hr |
 
-> **IMPORTANT (UPDATED Apr 22):** Organisers confirmed **NO training is allowed before Apr 25.** All GRPO training happens onsite using HuggingFace H100 credits. Kaggle/Colab notebooks are used for pipeline validation (dry-run) and as judge-facing deliverables only. Push 7 Phase B is preparation/validation only. Push 8 onsite is where ALL training happens.
+### Submission Checklist (from hack_info.md — ALL mandatory, non-negotiable)
+
+- [x] GitHub repo (public, clean)
+- [x] HF Space URL (deployed, `/ping` responds)
+- [ ] Mini-blog on HuggingFace OR mini-video on YouTube (< 2 minutes) — **ONSITE**
+- [x] Training script using Unsloth or HF TRL in Colab
+- [ ] Evidence of actual training: loss/reward plots from a REAL run — **ONSITE**
+- [ ] README links to all materials (blog, video, HF Space) — **ONSITE**
+- [x] Valid openenv.yaml manifest
+- [x] Respects client/server separation
+- [x] Standard Gym-style API (reset, step, state)
+- [x] No reserved tool names used for MCP tools
+
+### Judging Criteria Alignment
+
+| Criterion | Weight | Our Score (pre-training) | Key Strengths | Key Weaknesses |
+|-----------|--------|-------------------------|---------------|----------------|
+| **Environment Innovation** | 40% | 7/10 | Novel domain (clinical trials), POMDP with hidden truth, real scipy.stats power calcs, 19 actions, FDA rules | Phase system hollow (G23), latent biology shallow (G24), simulator is synthetic not tool-backed |
+| **Storytelling** | 30% | 3/10 → target 8/10 | README structure excellent, pitch script ready | ZERO real training data, no co-evolution narrative yet |
+| **Showing Improvement** | 20% | 0/10 → target 7/10 | Pipeline validated via dry-run, eval_compare ready | NO reward curves, NO before/after, NO baseline comparison |
+| **Reward & Pipeline** | 10% | 5/10 → target 8/10 | 8-component decomposed reward, CSV logging, plot script | trainer.train() NOT called (G26), manual rollout = no weight updates |
+
+> **IMPORTANT:** All training happens onsite Apr 25–26 on HF H100 credits. Pre-event is preparation only.
+
+---
+
+## 0.1 Competitor Landscape (Updated Apr 23)
+
+### Previous Winners (our benchmarks)
+
+| Repo | Place | Domain | Key Advantage Over Us | Key Disadvantage vs Us |
+|------|-------|--------|----------------------|----------------------|
+| **kube-sre-gym** (sid-rp) | 🥇 1st ($15K) | K8s SRE | Real GKE cluster, Claude adversarial designer, 3 training runs with reward curves, co-evolution story | Depends on external APIs (K8s + Anthropic) |
+| **OpenENV-Hackathon** (mhtruong1031) | 🥈 2nd | Bio Experiment | 1664-LOC training_script.py with OpenEnvReward class, 21 actions, richer FullLatentState, procedural scenario gen | Messier codebase ("cancer one shootter", "why me" commits) |
+| **EcomRLVE-Gym** (owlgebra-ai) | 🥉 3rd | E-commerce | Multi-environment platform, real product data | Sparse README, minimal docs |
+
+### What winners have that we DON'T (yet):
+1. **Real trainer.train() calls** — both kube-sre and OpenENV-Hackathon wire GRPOTrainer with rollout_func and call trainer.train()
+2. **Multiple training runs with narrative** — kube-sre has 3 runs telling a story (cold start → too easy → fights back)
+3. **Environment co-evolution story** — kube-sre found 3 bugs during training (parser, truncation, race condition) and fixed them
+4. **OpenEnvReward class** — OpenENV-Hackathon has a TRL-compatible reward function class
+5. **Unsloth training path** — OpenENV-Hackathon has training_unsloth.py for quantized GRPO
+
+### Current Round 2 Competitors (India hackathon)
+
+| Repo | Threat | Domain | Key Strength | Key Weakness |
+|------|--------|--------|-------------|-------------|
+| **Parlay** (sh4shv4t) | 🔴 HIGH | Negotiation | Game theory (ZOPA/Nash/Shapley), SFT→GRPO pipeline, MCP integration, 3D UI, 5 personas×5 scenarios | Depends on Gemini API, complex multi-service setup |
+| **veriRL** (SupreethRao99) | 🔴 HIGH | Verilog RTL | Real EDA tools (iverilog/yosys/SymbiYosys), 10 tasks, formal verification, Modal Labs GPU, concurrent sessions | Narrow domain appeal |
+| **cyber_range** (softsideof) | 🟡 MEDIUM | SOC/Security | 12-node network, MITRE ATT&CK tagging, adversarial designer, multi-persona judge | Simulated network (not real infra) |
+| **MedFlow-OpenEnv** (shriom17) | 🟢 LOW | Hospital Triage | Live HF Space with dashboard UI | Simple reward (+0.15/−0.10), no GRPO training, "future scope: replace dummy RL" |
+| **smartcity-traffic** (thevivekkelkar) | 🟢 LOW | Traffic | Multi-agent concept | Q-Learning not LLM, no neural networks, simple 2×2 grid |
+| **multi-agent-trading** (ARKAISW) | 🟢 LOW | Trading | Multi-agent desk concept, 2D office UI | Rushed (7hr-old commits), backend incomplete |
+| **Sovereign-SRE-Gym** (sharad0x) | 🟢 LOW | SRE | Zero-trust triage concept, adversarial NPCs | No training pipeline, early stage |
+
+### Our Competitive Position: **Strong environment, weak training evidence**
+- **Innovation (40%)**: We are competitive with top 3. Clinical trial design is genuinely novel.
+- **Storytelling (30%)**: Cannot score here until onsite training produces real data.
+- **Improvement (20%)**: Zero evidence. This is our biggest rubric gap.
+- **Pipeline (10%)**: Scaffolding exists but trainer.train() not wired (G26).
 
 ## 1. Mission and Success Bar
 
@@ -362,11 +406,9 @@ Both branches merged to main:
 
 ## Push 8 — Onsite Training + Deliverables (Apr 25–26, Scaler campus)
 
-**Goal:** Execute ALL GRPO training on H100, generate the 50% rubric evidence (reward curves + storytelling), and ship all deliverables. Pipeline is battle-tested from Push 7 dry-runs — execution should be smooth.
+**Goal:** Fix P0 code gaps, execute ALL GRPO training on H100, generate the 50% rubric evidence (reward curves + storytelling), and ship all deliverables.
 
 > **Compute:** HuggingFace H100 credits provided onsite (80 GB VRAM). This is where ALL training happens.
->
-> **Advantage from Push 7:** `--dry-run` validated, `--model-size` presets tested, notebooks verified, onsite checklist ready. No debugging — just execute.
 
 ### What We Arrive With (from Push 7 Preparation)
 
@@ -378,10 +420,54 @@ Both branches merged to main:
 - ✅ `docs/onsite_checklist.md` with exact step-by-step commands
 - ✅ All deliverable templates with `[FILL ONSITE]` placeholders
 - ✅ `docs/training_log.md` template ready for Statement 4 bugs
-- ✅ `docs/internal/resources.md` with full hackathon reference material
 - ✅ `docs/grounding.md` + `rpact_validation.json` ready for judge questions
 
-### Phase 1: First Training Run (Day 1, Hours 0–4)
+### Phase 0: P0 Code Fixes (Day 1, Hours 0–2) ← **NEW: DO THIS FIRST**
+
+> **CRITICAL:** These code fixes must happen BEFORE any training run. They affect reward signal quality.
+
+#### Fix G26: Wire trainer.train() (Suyash, ~1hr)
+The most critical gap. Our train.py has `_trainer = GRPOTrainer(...)` marked as unused variable. Winners (kube-sre-gym, OpenENV-Hackathon) all call `trainer.train()` with a `rollout_func` that drives environment interaction.
+
+**What to do:**
+1. Remove `noqa: F841` from `_trainer = GRPOTrainer(...)`
+2. Wire `rollout_func` into the GRPOTrainer (matches kube-sre-gym pattern)
+3. Call `trainer.train()` instead of the manual rollout loop
+4. Keep the manual rollout path as `--dry-run` fallback only
+5. Verify `_grpo_reward_fn` is integrated into reward_funcs list
+
+**Reference:** kube-sre-gym `train.py` L553–620 (rollout_func returns prompt_ids + completion_ids + logprobs + rewards, GRPOTrainer does the gradient updates)
+
+#### Fix G23: Make phase progression authoritative (Suyash, ~1hr)
+`transition_engine.py` never updates `latent.episode_phase`. It stays `"literature_review"` forever.
+
+**What to do:**
+1. In `transition_engine.py`, after processing each action, update `latent.episode_phase` based on action type and milestone flags
+2. Map: dose_escalation actions → `"phase_i_dose_escalation"`, run_interim → `"phase_ii_interim"`, submit_to_fda → `"regulatory_submission"`, etc.
+3. Update `test_integration.py` to assert phase actually progresses
+4. Verify `fda_rules.py` TRANSITION_TABLE now unlocks correct actions per phase
+
+#### Fix G24: Populate latent biology from scenarios (Roopal, ~1hr)
+`episode_manager.py` reset() hardcodes `true_responder_population="all"`, `true_responder_criteria=[]`, `true_dose_response={}`, `true_mechanism="unknown"`.
+
+**What to do:**
+1. Add responder_population, responder_criteria, dose_response, mechanism fields to ScenarioConfig in `scenarios.py`
+2. In `episode_manager.py` reset(), populate latent state from scenario config instead of hardcoding
+3. For solid_tumor_chemo: `true_responder_population="EGFR+"`, `true_responder_criteria=["EGFR_mutation"]`, etc.
+4. For autoimmune_biologic: `true_dose_response={"100mg": 0.15, "200mg": 0.31, "400mg": 0.10}`
+5. Verify output_generator.py dose-response and responder hint code paths now activate
+
+#### Fix G25: Feed real data to adversarial designer (Roopal, ~30min)
+`episode_manager.py` passes `true_effect_size=None`, `dropout_rate=None` to analyze_failures().
+
+**What to do:**
+1. After each episode, extract actual `latent.true_effect_size` and `latent.dropout_rate`
+2. Check if agent used biomarker stratification (scan action history)
+3. Pass these real values to `analyze_failures()`
+
+#### Gate: ALL P0 fixes must pass `pytest tests/ -q` before training starts.
+
+### Phase 1: First Training Run (Day 1, Hours 2–6)
 
 **Suyash leads execution, Roopal monitors + documents.**
 
