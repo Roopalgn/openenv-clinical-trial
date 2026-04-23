@@ -217,6 +217,24 @@ git push origin main
 
 ---
 
+## Training-Failure Fallback
+
+> **Trigger:** No learning signal (flat or negative reward curve) after 2 hours of debugging.
+
+1. **Switch model:** Qwen2.5-1.5B + 4-bit quant for fastest iteration
+   ```bash
+   python train.py --model-size 1.5b --model-path Qwen/Qwen2.5-1.5B-Instruct --episodes 20 --seed 42 --output-dir outputs/fallback
+   ```
+2. **Run 5 dry-run episodes** with detailed annotated reward narrative
+   ```bash
+   python train.py --dry-run --episodes 5 --output-dir outputs/dryrun_fallback
+   ```
+3. **Document the failure** in `docs/training_log.md` as Statement 4 co-evolution evidence — explain why it didn't converge and what you learned
+4. **Minimum acceptable submission:** dry-run evidence + annotated reward evolution + failure analysis in `docs/training_log.md`
+5. **Even flat curves with analysis beat zero evidence** — judges score effort and understanding, not just results
+
+---
+
 ## Troubleshooting
 
 | Problem | Fix |

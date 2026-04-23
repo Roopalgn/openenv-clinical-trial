@@ -36,6 +36,10 @@ Clinical trials are one of the highest-stakes professional tasks in the world:
 
 No existing OpenEnv environment covers clinical trial design. This combines real statistical tools, real regulatory rules, and a trial simulator with hidden ground truth — a partially observable professional world where shortcuts don't work.
 
+### Innovation Argument
+
+Clinical trial design is uniquely suited for an OpenEnv environment because it is a **real professional task with objective, math-verified outcomes** — no LLM judge needed for core metrics. Unlike game or code environments, the agent must plan over 55–100 steps under genuine partial observability (hidden biology, hidden subgroups), satisfy hard legal constraints (FDA ICH E9), and produce designs whose quality is measured by `scipy.stats` power calculations and trial simulation against hidden ground truth. The 5-tier adaptive curriculum with domain randomization ensures the agent cannot memorize solutions, while the 15-component decomposed reward provides the variance GRPO needs for stable training. This is the first OpenEnv environment for clinical trial design.
+
 ## Key Highlights
 
 | Feature | Implementation |
