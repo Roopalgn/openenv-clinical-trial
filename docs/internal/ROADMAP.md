@@ -465,11 +465,22 @@ The most critical gap. Our train.py has `_trainer = GRPOTrainer(...)` marked as 
 2. Check if agent used biomarker stratification (scan action history)
 3. Pass these real values to `analyze_failures()`
 
+#### Training-Failure Fallback Plan
+
+If GRPO shows **no learning signal after 2 hours** of debugging:
+1. Switch to Qwen2.5-1.5B + 4-bit quant for fastest iteration
+2. Run 5 dry-run episodes with detailed annotated reward narrative
+3. Document the failure analysis as Statement 4 evidence ("why it didn't converge + what we learned")
+4. **Minimum acceptable submission:** dry-run evidence + annotated reward evolution + failure analysis
+5. Even flat curves with analysis beat zero evidence
+
 #### Gate: ALL P0 fixes must pass `pytest tests/ -q` before training starts.
 
 ### Phase 1: First Training Run (Day 1, Hours 2–6)
 
 **Suyash leads execution, Roopal monitors + documents.**
+
+> **HARD GOAL:** Minimum 2 training runs to produce an overlay comparison plot (judges want multiple runs on same axes — Section 4.4 of hack_info.md).
 
 - **(G16)** Launch GRPO training on H100. **Strategy: start small, scale fast.**
   - **Run 1 (fast signal check):** `python train.py --model-size 1.5b --model-path Qwen/Qwen2.5-1.5B-Instruct --episodes 20 --seed 42`
@@ -477,6 +488,7 @@ The most critical gap. Our train.py has `_trainer = GRPOTrainer(...)` marked as 
     - BF16 natively on H100, no quantization needed.
   - **Run 2 (scale up):** If Run 1 shows signal → immediately: `python train.py --model-size 3b --model-path Qwen/Qwen2.5-3B-Instruct --episodes 50 --seed 42`
     - Or if ambitious: `--model-size 7b` with 30 episodes — H100 handles full 7B in BF16 easily.
+  - **Run 2 is NON-OPTIONAL.** Even if Run 1 fails, do a second run with adjusted params to get overlay axes.
   - **If Run 1 shows NO signal:** Debug reward weights, check shaping function, try different curriculum tier. **Document the iteration** — this is ALSO part of the Statement 4 co-evolution story.
 - Log every episode to CSV (`logs/rewards.csv`) + JSONL (`logs/transcripts.jsonl`).
 - After each run, immediately run `python plot_rewards.py` to check signal quality.
@@ -605,6 +617,49 @@ The most critical gap. Our train.py has `_trainer = GRPOTrainer(...)` marked as 
 - [ ] `docs/onsite_checklist.md` created and reviewed.
 - [ ] All deliverable templates have `[FILL ONSITE]` placeholders ready.
 - [ ] HF Space live and responding after merges.
+- [ ] Validate repo size < 500 MB (no .mp4/.mov committed — use URL links for media).
+- [ ] Onsite checklist includes training-failure fallback plan (see Push 8 Phase 0).
+- [ ] README § Innovation Argument drafted: "Why clinical trials are ambitious" (cost $2.6B, 90% fail rate, POMDP + FDA verification — judges ask this).
+- [ ] ARCHITECTURE.md § Agent Action Space: enumerate all 19 actions with semantic roles.
+
+#### Pre-25th Task Assignment (Apr 24 — TONIGHT)
+
+> **DEADLINE:** Everything below must be done before boarding/travel to Bangalore on Apr 25.
+
+##### Roopal (docs, deliverables, content)
+
+| # | Task | Est. | Depends On | Output |
+|---|------|------|-----------|--------|
+| R1 | **Test Colab notebook** on free tier (T4): `--dry-run --episodes 2` | 30 min | — | Screenshot of successful run in cell outputs |
+| R2 | **Test Kaggle notebook** with dry-run | 30 min | — | Screenshot of successful run |
+| R3 | **Draft README § Innovation Argument** — "Why clinical trials are ambitious" (cost $2.6B, 90% fail, POMDP + FDA verification, underexplored in RL/LLM). This is for the 40% Innovation criterion. | 20 min | — | 1 paragraph in README.md |
+| R4 | **Verify all deliverable templates** have `[FILL ONSITE]` placeholders: `mini_blog_draft.md`, `pitch_notes.md`, `training_log.md` | 15 min | — | Confirm in checklist |
+| R5 | **Add training-failure fallback** to `docs/onsite_checklist.md`: "If no convergence in 2 hrs → switch to 1.5B 4-bit → dry-run fallback → failure analysis as Statement 4" | 15 min | — | Updated checklist |
+| R6 | **Validate repo size** < 500 MB, no committed video/media files | 5 min | — | `git count-objects -vH` output |
+| R7 | **Review onsite_checklist.md** end-to-end with Suyash | 15 min | S5 | Both sign off |
+| R8 | **Study `docs/internal/resources.md`** for reward engineering best practices + GRPO pitfalls | 30 min | — | Mental prep |
+
+##### Suyash (pipeline, validation, hardening)
+
+| # | Task | Est. | Depends On | Output |
+|---|------|------|-----------|--------|
+| S1 | **Run `python train.py --dry-run --episodes 5 --model-size 1.5b`** on merged main | 15 min | — | CSV + PNG + JSONL all correct |
+| S2 | **Run `python eval_compare.py --base-only --episodes 5`** → verify baseline JSON | 10 min | — | `outputs/eval/eval_comparison_report.json` valid |
+| S3 | **Stress-test `train.py`** edge cases: `--episodes 1` and `--episodes 20` dry-run, verify checkpoint logic | 20 min | S1 | No crashes, correct outputs |
+| S4 | **Verify HF Space** is still live: `/ping`, `/reset`, `/step` all respond after merges | 10 min | — | HTTP 200 on all 3 endpoints |
+| S5 | **Add action enumeration to ARCHITECTURE.md** § Agent Action Space — list all 19 actions with semantic roles (design, analysis, regulatory, etc.) | 30 min | — | New section in ARCHITECTURE.md |
+| S6 | **Review onsite_checklist.md** end-to-end with Roopal | 15 min | R5 | Both sign off |
+| S7 | **Study P0 code fix plans** in ROADMAP Push 8 Phase 0 (G23, G26 especially) — prepare mental model for onsite. Read kube-sre-gym `train.py` rollout_func pattern. | 30 min | — | Mental prep |
+
+##### Joint (both together)
+
+| # | Task | When | Output |
+|---|------|------|--------|
+| J1 | **Walk through Push 8 Phase 0** together — who does what, what order, what tests | After R7+S6 | Shared understanding |
+| J2 | **Rehearse 3-min pitch** (dry, no real data yet — structure + transitions only) | After J1 | Pitch timing validated |
+| J3 | **Final `git push` of all prep work** | Last thing | Clean main branch |
+
+**Total estimated time:** ~3.5 hrs (can overlap R1-R6 with S1-S5 in parallel).
 
 ### Push 8 (Onsite Training + Deliverables) — Apr 25–26
 
