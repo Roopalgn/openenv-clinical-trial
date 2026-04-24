@@ -76,6 +76,16 @@ class StepResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+@app.get("/")
+def root() -> dict[str, str]:
+    """Root endpoint — confirms the Space is live."""
+    return {
+        "status": "ok",
+        "service": "Clinical Trial Designer Environment",
+        "endpoints": "/ping, /reset, /step, /state, /schema, /ws, /dashboard",
+    }
+
+
 @app.get("/ping")
 def ping() -> dict[str, str]:
     """Health check endpoint."""
