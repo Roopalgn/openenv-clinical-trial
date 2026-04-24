@@ -81,6 +81,22 @@
 - [ ] **README** that motivates the problem, explains how the env works, and shows results
   - Must link to: HF Space, blog/video, all additional references
 - [ ] **No big video files** in HF Hub submission — use URL links to external materials
+- [ ] **All URLs and links must be in your README** — HF Space, Colab notebook, blog/video, repo. If validation can't reach a deliverable from the README, it counts as missing.
+
+### 3.1a Automated Validation Gate (Pre-Judge Filter)
+
+> **CRITICAL:** If any item below is missing or broken at deadline, the submission **will not reach a human judge** regardless of quality.
+
+- **Public, cloneable HF Space** at the submitted URL. Test from a **logged-out browser**. Private spaces, dead links, or 404s = automatic disqualification.
+- **Valid OpenEnv structure:** proper `Environment` / `MCPEnvironment` base class, Gym-style `reset` / `step` / `state`, and a parseable `openenv.yaml`.
+- **Training evidence committed as image files** (`.png` / `.jpg`): at minimum a loss curve and a reward curve. **Wandb-only links and plots that live only in a Colab cell don't count** — they may not be reachable when validation runs.
+- **Runnable training script** (Unsloth, HF TRL, or other frameworks), preferably linked as a Colab notebook so it can be re-executed end to end. Python script is also acceptable.
+- **README links every deliverable:** HF Space, training notebook, and writeup (blog/video/slides), with **key plots embedded inline**. If validation can't reach a deliverable from the README, it counts as missing.
+
+### 3.1b Tips on Deliverables
+
+- **HF Blog:** Write a markdown article and place it in your repo. HuggingFace supports markdown blog posts directly.
+- **Training Notebook:** Ensure it is runnable and doesn't contain errors. Share the codebase link to the training script's `.ipynb` or add the publicly accessible Google Colab notebook link to your README.
 
 ### 3.2 Judging Overview (Scoring Weights)
 
@@ -203,6 +219,16 @@ Engineering quality matters less than ambition, but sloppy work hurts:
 - New/unregistered members added to travel details will NOT be allowed on campus
 - Organisers reserve the right to deny entry if verification criteria are not met
 
+### Submission Logistics
+
+- **Deadline:** Submissions close at **5:00 PM on April 26**. No submissions accepted after this. **No extensions under any circumstances.**
+- **How:** A Google Form will be shared on campus. You must submit:
+  1. **HuggingFace Space URL**
+  2. **Colab Notebook link**
+  3. **Code repository link**
+  4. **YouTube video URL** or **HuggingFace blog post URL**
+- **Only one submission per team.** The URL you submit is what judges pull — **changes/commits after deadline will not be considered.**
+
 ---
 
 ## 6. Submission Design Expectations
@@ -226,246 +252,3 @@ Engineering quality matters less than ambition, but sloppy work hurts:
 - Reflect real-world complexity aligned with OpenEnv principles
 
 ---
-
-## 7. Competitor Repos (Round 2, India)
-
-| # | Repo | Domain |
-|---|------|--------|
-| 1 | [veriRL](https://github.com/SupreethRao99/veriRL) | Verilog RTL verification |
-| 2 | [cyber_range](https://github.com/softsideof/cyber_range) | SOC / Cybersecurity |
-| 3 | [Parlay](https://github.com/sh4shv4t/Parlay) | Multi-party negotiation |
-| 4 | [smartcity-traffic](https://github.com/thevivekkelkar/smartcity-traffic) | Traffic management |
-| 5 | [Sovereign-SRE-Gym](https://github.com/sharad0x/Sovereign-SRE-Gym) | SRE / Zero-trust |
-| 6 | [multi-agent-trading-env](https://github.com/ARKAISW/multi-agent-trading-env) | Trading desk |
-| 7 | [MedFlow-OpenEnv](https://github.com/shriom17/MedFlow-OpenEnv) | Hospital triage |
-
----
-
-## 8. Codex Gap Analysis — Where We Are Materially Behind
-
-### 8.1 P0 Gaps (Must Fix)
-
-#### Gap 1: Phase system is architected but not actually driving the environment
-
-> **This is the largest code-level gap in the repo.**
-
-**Evidence:**
-- `server/episode_manager.py` initializes `latent.episode_phase = "literature_review"` on reset
-- `server/phase_detector.py` classifies phases from actions
-- `server/rules/fda_rules.py` checks action validity against `latent.episode_phase`
-- `server/simulator/output_generator.py` builds `available_actions` from `latent.episode_phase`
-- **BUT** `server/simulator/transition_engine.py` **never updates** `latent.episode_phase`
-- `tests/test_integration.py` even documents and asserts that episode phase stays `literature_review` throughout
-
-**Consequence:**
-- Phase abstraction exists, but phase progression is not authoritative
-- `available_actions` and FDA transition logic are anchored to the initial phase
-- A large part of the designed action/state space is dead or underused
-- Strong tests accidentally preserve this if they encode the simplification
-
-#### Gap 2: Scenario descriptions promise richer biology than the latent state contains
-
-**Evidence:**
-- `server/curriculum/scenarios.py` describes biomarker enrichment, dose-response structure, placebo effects, rare-disease constraints
-- BUT `server/episode_manager.py` reset() builds latent state with:
-  - `true_responder_population="all"`
-  - `true_responder_criteria=[]`
-  - `true_dose_response={}`
-  - `true_mechanism="unknown"`
-- `server/simulator/output_generator.py` has code paths for dose-response/responder hints, but fields are mostly empty
-
-**Consequence:**
-- Code advertises a richer clinical-trial environment than it actually simulates
-- Biomarker and dose-related actions have much less real semantic payoff than code structure suggests
-- Top same-domain competitor (OpenENV-Hackathon) is much deeper here
-
-#### Gap 3: Adversarial curriculum is underfed and weaker than it looks
-
-**Evidence:**
-- `server/curriculum/adversarial_designer.py` expects `true_effect_size`, `dropout_rate`, biomarker usage
-- `server/episode_manager.py` feeds `analyze_failures()` with `{success, true_effect_size=None, dropout_rate=None}`
-- No biomarker-use signal is passed
-
-**Consequence:**
-- Adversarial designer cannot actually learn the weak spots it claims to target
-- `small_effect` and `high_dropout` counters never get meaningful signal
-- Expert-tier adversarial logic is much weaker than module names suggest
-
-#### Gap 4: Training runner is not a real competitive training pipeline yet
-
-**Evidence:**
-- `train.py` instantiates `GRPOTrainer` but **never calls `trainer.train()`**
-- Comment in `train.py` explicitly says the manual rollout loop drives logging and `trainer.train()` "can be called instead"
-- `_grpo_reward_fn()` is defined but not actually integrated into a real trainer loop
-- The manual loop in `rollout_func()` is closer to evaluation logging than trainer-backed optimization
-
-**Consequence:**
-- We have training scaffolding, not a training system on par with EcomRLVE-Gym, OpenENV-Hackathon, or veriRL
-- **Major competitive weakness** — those repos wire reward functions, datasets, and trainer flows credibly
-
-#### Gap 5: Judge is stage-insensitive, distorting learning signal
-
-**Evidence:**
-- `server/judge.py` checks budget, power ≥ 0.80, and p-value < 0.05 on **every step** using hidden latent truth
-- Early design actions are judged against end-state statistical criteria before the agent has even finished the workflow
-
-**Consequence:**
-- Feedback loop is partly hindsight-based instead of phase-appropriate
-- Weaker than environments where reward/judge logic is tied to stage-specific progress
-
-#### Gap 6: Single session only
-
-**Evidence:**
-- `server/environment.py` sets `SUPPORTS_CONCURRENT_SESSIONS = False`
-- `server/app.py` uses one global `_manager = EpisodeManager()`
-
-**Consequence:**
-- Weaker than OpenENV-Hackathon, veriRL, MedFlow-OpenEnv (which have session isolation or concurrent workflows)
-- Not critical for hackathon demo
-
-### 8.2 P1 Gaps (Nice to Fix)
-
-#### Gap 7: Resource physics and observation noise are much simpler than top environments
-
-**Evidence:**
-- `server/noise_model.py` randomizes only a few scalar ranges
-- `server/simulator/transition_engine.py` applies mostly fixed cost/time constants
-- `server/simulator/trial_simulator.py` uses lightweight statistical proxies
-
-**Compared with:**
-- OpenENV-Hackathon: richer latent technical/biological state, hard/soft rule propagation, modality-specific output generation
-- cyber_range: explicit network topology, alerts, forensics, attacker progression
-- veriRL: real external evaluators (not proxies)
-
-#### Gap 8: Breadth of module names without matching breadth of realized behavior
-
-The strongest same-domain comparison is OpenENV-Hackathon, which has:
-- Task generation + procedural scenario generation
-- Latent biology state + technical state
-- Hard and soft rules
-- Detailed transition engine + output generator
-- Decomposed reward with shaping and terminal calibration
-
-Our repo has analogous module names, but many paths are thinner in semantics. **The architecture is there. The content density is not.**
-
-#### Gap 9: Tests validate simplified behavior that should eventually change
-
-The clearest example is phase progression. The test suite is a strength, but it needs to evolve with the simulator rather than just defend current simplified behavior.
-
----
-
-## 9. Competitor-by-Competitor Comparison
-
-### OpenENV-Hackathon (Bio Experiment) — **Most important direct comparator**
-
-Solves a closely related hidden-state scientific planning problem with a deeper implementation.
-
-| Dimension | Them | Us |
-|-----------|------|-----|
-| Latent state | Richer latent/observed loop in `hackathon_environment.py` | Simpler, fields often empty |
-| Scenario generation | `generator.py` + `procedural_generator.py` | Less scenario richness |
-| Rules engine | Prerequisites, resource constraints, redundancy, causal validity, tool compatibility | FDA rules + basic constraints |
-| Simulator | More detailed `transition.py` + `output_generator.py` | Thinner semantic paths |
-| Rewards | Substantially richer and more stage-aware | 8-component but stage-insensitive |
-| Training | Much closer to a real training system | `trainer.train()` not wired |
-
-**Where we're stronger:** Easier to reason about, stronger automated verification, simpler API/dashboard/logging.
-**Bottom line:** They're ahead on environment depth. We're ahead on code trustworthiness.
-
-### EcomRLVE-Gym (E-commerce)
-
-| Dimension | Them | Us |
-|-----------|------|-----|
-| Scope | Multi-environment platform | Single environment |
-| Orchestration | Strong env selection, adaptive difficulty, tool execution, user simulator | Simpler curriculum |
-| Verification | Deep environment-specific deterministic verification | Ground-truth + rule engine |
-| Training | More credible GRPO integration | `trainer.train()` not wired |
-
-**Where we're stronger:** Far better test coverage, lower complexity, cleaner maintainability.
-**Bottom line:** They're the broadest platform. We're more disciplined but materially less complete.
-
-### cyber_range (SOC/Security)
-
-| Dimension | Them | Us |
-|-----------|------|-----|
-| Interaction surface | True multi-tool surface via `cyber_environment.py` | Clinical actions via API |
-| World state | Living network topology + attack + forensics | Scalar latent variables |
-| Curriculum + Judge | Deeper `attack_designer.py` + `cyber_judge.py` | Rule-based templates |
-| Reward shaping | Tuned for actual RL signal variance | Standard potential-based |
-
-**Where we're stronger:** Better typing, cleaner modular boundaries, better test posture.
-**Bottom line:** They're ahead on realism. We're ahead on reliability engineering.
-
-### veriRL (Verilog RTL)
-
-| Dimension | Them | Us |
-|-----------|------|-----|
-| Evaluation | Real tool-backed (iverilog, yosys, SymbiYosys) | Synthetic simulator |
-| Concurrency | Multi-file environment, concurrent sessions | Single session |
-| Task packaging | Strong real-world feedback loop | Clinical scenario cards |
-| Tests | Very good | Also very good |
-
-**Where we're stronger:** Easier API/demo shell, simpler state reasoning.
-**Bottom line:** Their evaluator is much more grounded. They're ahead overall because their grading surface is real.
-
-### kube-sre-gym (1st Place Winner)
-
-| Dimension | Them | Us |
-|-----------|------|-----|
-| Backend | Real GKE Kubernetes cluster | Synthetic simulator |
-| Adversarial | Richer, operationally grounded incident design (Claude) | Rule-based templates |
-| Judge/Scenarios | Workflow-aware incident response | Phase-based clinical workflow |
-
-**Where we're stronger:** Determinism, reproducibility, testability, lower operational dependency.
-**Bottom line:** They trade determinism for realism — and for demos/storytelling, that realism is a competitive asset.
-
-### Parlay (Negotiation)
-
-| Dimension | Them | Us |
-|-----------|------|-----|
-| Reward design | Game-theoretic (ZOPA, Nash, Shapley) — sharper | 8-component decomposed |
-| Session flow | Coherent WebSocket + MCP | Standard REST + WebSocket |
-| Pipeline | SFT→GRPO 2-stage | GRPO single-stage |
-
-**Where we're stronger:** Better test depth, better API/product shell, more explicit modularization.
-**Bottom line:** Same maturity band. They're stronger in domain-specific reward math. We're stronger in verification.
-
-### MedFlow-OpenEnv (Hospital Triage)
-
-- **Stronger:** Dynamic arrivals, doctor scheduling, beds, queue-state simulation
-- **Weaker:** Simple reward (+0.15/−0.10), no GRPO training, "future scope: replace dummy RL"
-- **We are ahead overall**
-
-### smartcity-traffic (Traffic Management)
-
-- **Stronger:** Explicit multi-agent / federated baseline story
-- **Weaker:** Q-Learning (not LLM), simple 2×2 grid
-- **We are clearly ahead overall**
-
-### multi-agent-trading-env (Trading Desk)
-
-- **Stronger:** Frontend polish and dashboard surface
-- **Weaker:** Backend incomplete (`env.trading_env.TradingEnv` module missing from repo tree)
-- **Our codebase is more complete**
-
-### Sovereign-SRE-Gym (SRE)
-
-- **Stronger:** Interesting multi-agent delegation concept with adversarial NPCs
-- **Weaker:** No training pipeline, early stage
-- **We are clearly ahead overall**
-
----
-
-## 10. The Most Important Strategic Insight
-
-> **Our repo is not losing because the architecture is wrong.**
-
-It is losing because:
-1. The phase system is **not authoritative**
-2. The latent biology is **under-instantiated**
-3. The adversarial curriculum is **underfed**
-4. The training loop is **not fully wired**
-
-**That is good news.**
-
-It means the fastest path forward is **not a rewrite**. It is **semantic completion** of the existing architecture.

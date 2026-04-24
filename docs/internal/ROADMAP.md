@@ -32,15 +32,19 @@ These are **real architectural weaknesses** in our codebase that competitors don
 ### Submission Checklist (from hack_info.md — ALL mandatory, non-negotiable)
 
 - [x] GitHub repo (public, clean)
-- [x] HF Space URL (deployed, `/ping` responds)
+- [x] HF Space URL (deployed, `/ping` responds) — **test from logged-out browser!**
 - [ ] Mini-blog on HuggingFace OR mini-video on YouTube (< 2 minutes) — **ONSITE**
-- [x] Training script using Unsloth or HF TRL in Colab
-- [ ] Evidence of actual training: loss/reward plots from a REAL run — **ONSITE**
-- [ ] README links to all materials (blog, video, HF Space) — **ONSITE**
+- [x] Training script using Unsloth or HF TRL in Colab (runnable, no errors)
+- [ ] Evidence of actual training: loss/reward plots **committed as .png/.jpg** (Wandb-only or Colab-only don't count!) — **ONSITE**
+- [ ] README links ALL materials (HF Space, Colab notebook, blog/video, repo) + key plots embedded inline — **ONSITE**
 - [x] Valid openenv.yaml manifest
 - [x] Respects client/server separation
 - [x] Standard Gym-style API (reset, step, state)
 - [x] No reserved tool names used for MCP tools
+
+> **Automated validation gate:** Submissions missing any of the above won't reach a human judge.
+> **Deadline:** 5:00 PM April 26 — no extensions. Google Form on campus.
+> **Form fields:** HF Space URL, Colab Notebook link, Code repo link, YouTube/HF blog URL.
 
 ### Judging Criteria Alignment
 
