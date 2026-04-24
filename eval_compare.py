@@ -261,9 +261,9 @@ def generate_comparison_report(
         if not results:
             return {
                 "success_rate": 0.0,
-                "mean_reward": 0.0,
-                "mean_episode_length": 0.0,
-                "total_episodes": 0,
+                "avg_reward": 0.0,
+                "avg_steps": 0.0,
+                "episodes_run": 0,
             }
 
         success_count = sum(1 for r in results if r.success)
@@ -272,9 +272,9 @@ def generate_comparison_report(
 
         return {
             "success_rate": round(success_count / len(results), 4),
-            "mean_reward": round(total_reward / len(results), 4),
-            "mean_episode_length": round(total_length / len(results), 2),
-            "total_episodes": len(results),
+            "avg_reward": round(total_reward / len(results), 4),
+            "avg_steps": round(total_length / len(results), 2),
+            "episodes_run": len(results),
         }
 
     def scenario_breakdown(results: list[EpisodeResult]) -> dict[str, Any]:
@@ -309,11 +309,11 @@ def generate_comparison_report(
                 trained_metrics["success_rate"] - base_metrics["success_rate"], 4
             ),
             "mean_reward_delta": round(
-                trained_metrics["mean_reward"] - base_metrics["mean_reward"], 4
+                trained_metrics["avg_reward"] - base_metrics["avg_reward"], 4
             ),
             "mean_episode_length_delta": round(
-                trained_metrics["mean_episode_length"]
-                - base_metrics["mean_episode_length"],
+                trained_metrics["avg_steps"]
+                - base_metrics["avg_steps"],
                 2,
             ),
         },

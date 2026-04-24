@@ -30,6 +30,7 @@ pip install matplotlib   # for reward curve plots
 ```bash
 export HF_TOKEN="hf_YOUR_TOKEN_HERE"
 export CUDA_VISIBLE_DEVICES=0
+export HF_HUB_CACHE="/scratch/hf_cache"   # point to fast local disk on H100 node
 export PYTHONUNBUFFERED=1
 ```
 
@@ -62,11 +63,13 @@ rm -rf outputs/verify
 
 Try in this order. Move to next if OOM or too slow:
 
-| Priority | Command | VRAM (BF16) | Expected time (20 ep) |
-|----------|---------|-------------|----------------------|
-| 1st | `--model-size 7b --model-path Qwen/Qwen2.5-7B-Instruct` | ~14 GB | ~5 hrs |
-| 2nd | `--model-size 3b --model-path Qwen/Qwen2.5-3B-Instruct` | ~6 GB | ~3 hrs |
-| **3rd (safe)** | `--model-size 1.5b --model-path Qwen/Qwen2.5-1.5B-Instruct` | ~3 GB | ~1 hr |
+| Priority | Model | Precision | VRAM | ~Time/ep | Expected time (20 ep) |
+|----------|-------|-----------|------|----------|-----------------------|
+| 1st | `Qwen2.5-7B-Instruct` (`--model-size 7b`) | BF16 | ~14 GB | ~15 min/ep | ~5 hrs |
+| 2nd | `Qwen2.5-3B-Instruct` (`--model-size 3b`) | BF16 | ~6 GB | ~8 min/ep | ~3 hrs |
+| **3rd (safe)** | `Qwen2.5-1.5B-Instruct` (`--model-size 1.5b`) | 4-bit quant | ~3 GB | ~3 min/ep | ~1 hr |
+
+Fallback progression: **7B BF16 → 3B BF16 → 1.5B 4-bit**
 
 **Start with 1.5B for fast signal, then scale up if time allows.**
 

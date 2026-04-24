@@ -1,9 +1,9 @@
 {
   "base_policy": {
     "success_rate": 0.0,
-    "mean_reward": 147.3842,
-    "mean_episode_length": 50.0,
-    "total_episodes": 5
+    "avg_reward": 147.3842,
+    "avg_steps": 50.0,
+    "episodes_run": 5
   },
   "trained_policy": null,
   "improvement": null,

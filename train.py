@@ -300,7 +300,7 @@ def _grpo_reward_fn(
 MODEL_SIZE_PRESETS: dict[str, dict[str, int]] = {
     "1.5b": {"lora_r": 8, "batch": 1, "seq_len": 2048, "grad_accum": 4},
     "3b": {"lora_r": 16, "batch": 1, "seq_len": 3072, "grad_accum": 4},
-    "7b": {"lora_r": 16, "batch": 1, "seq_len": 4096, "grad_accum": 8},
+    "7b": {"lora_r": 32, "batch": 1, "seq_len": 4096, "grad_accum": 8},
 }
 
 

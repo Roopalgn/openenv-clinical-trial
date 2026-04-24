@@ -267,6 +267,56 @@ openenv-clinical-trial/
     └── mini_blog_draft.md
 ```
 
+## Agent Action Space
+
+All 19 actions are defined in `models.py` as `ActionType(str, Enum)`. The agent selects one per step; the RuleEngine validates prerequisites before execution.
+
+### Design
+
+| Action | Description |
+|--------|-------------|
+| `set_primary_endpoint` | Define the primary efficacy endpoint for the trial |
+| `set_sample_size` | Set the target patient enrollment count |
+| `set_inclusion_criteria` | Specify patient eligibility inclusion criteria |
+| `set_exclusion_criteria` | Specify patient eligibility exclusion criteria |
+| `set_dosing_schedule` | Define the dosing regimen and schedule |
+| `set_control_arm` | Configure the control arm (placebo or active comparator) |
+| `set_randomization_ratio` | Set the treatment-to-control randomization ratio |
+| `set_blinding` | Configure blinding level (open, single, double) |
+
+### Analysis
+
+| Action | Description |
+|--------|-------------|
+| `run_dose_escalation` | Execute Phase I dose escalation to identify MTD |
+| `observe_safety_signal` | Record and evaluate observed adverse safety signals |
+| `estimate_effect_size` | Estimate treatment effect size from available data |
+| `run_interim_analysis` | Perform a pre-specified interim efficacy/futility analysis |
+| `modify_sample_size` | Adjust enrollment target based on interim findings |
+| `add_biomarker_stratification` | Add biomarker-based patient stratification layer |
+| `run_primary_analysis` | Execute the final primary statistical analysis |
+
+### Regulatory
+
+| Action | Description |
+|--------|-------------|
+| `submit_to_fda_review` | Submit the trial protocol for FDA regulatory review |
+| `request_protocol_amendment` | Request a formal amendment to the approved protocol |
+
+### Monitoring
+
+| Action | Description |
+|--------|-------------|
+| `enroll_patients` | Enroll the next cohort of patients into the trial |
+
+### Terminal
+
+| Action | Description |
+|--------|-------------|
+| `synthesize_conclusion` | Synthesize final trial conclusions and submit the report |
+
+---
+
 ## Statistical Grounding
 
 - External references and reproducibility rationale: [docs/grounding.md](docs/grounding.md)
