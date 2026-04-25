@@ -333,30 +333,6 @@ class EpisodeManager:
                             episode_length=self._step_count,
                             terminal_outcome="timeout_invalid",
                         )
-                    # Curriculum + logging for invalid-only episode ends
-                    self._episode_history.append(False)
-                    self._episode_outcomes.append(
-                        {
-                            "success": False,
-                            "scenario_id": self._scenario.scenario_id,
-                            "true_effect_size": self._latent.true_effect_size,
-                            "dropout_rate": self._latent.dropout_rate,
-                        }
-                    )
-                    metrics = EpisodeMetrics(
-                        success=False,
-                        episode_history=self._episode_history,
-                    )
-                    self._curriculum_tier = advance_curriculum(
-                        self._curriculum_tier, metrics
-                    )
-                    if self._logger is not None:
-                        self._logger.log_summary(
-                            scenario_id=self._scenario.scenario_id,
-                            total_reward=self._total_reward,
-                            episode_length=self._step_count,
-                            terminal_outcome="timeout_invalid",
-                        )
                 step_idx = len(self._latent.action_history)
                 info: dict = {
                     "step_index": step_idx,
@@ -378,6 +354,7 @@ class EpisodeManager:
                     scenario_description=self._scenario.description,
                     hint="",
                 )
+                self._total_reward += reward.total
                 # Log invalid step
                 if self._logger is not None:
                     self._logger.log_step(step_idx, action, obs, reward, done)
