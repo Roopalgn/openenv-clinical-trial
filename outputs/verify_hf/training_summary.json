@@ -1,0 +1,10 @@
+{
+  "model_path": "dry-run/random-policy",
+  "episodes": 2,
+  "seed": 42,
+  "mean_reward": -1.612729,
+  "max_reward": -1.603424,
+  "min_reward": -1.622033,
+  "final_curriculum_tier": 0,
+  "completed_at": "2026-04-25T12:41:04.914977+00:00"
+}

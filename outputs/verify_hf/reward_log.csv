@@ -1,0 +1,3 @@
+episode,seed,total_reward,steps,terminal_outcome,timestamp
+0,42,-1.603424,50,timeout,2026-04-25T12:41:01.530381+00:00
+1,43,-1.622033,50,timeout,2026-04-25T12:41:01.620148+00:00

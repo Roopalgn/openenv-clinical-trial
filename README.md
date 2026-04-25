@@ -131,13 +131,13 @@ At Expert tier, the `AdversarialDesigner` generates targeted parameter configura
 
 ## Results
 
-> Pre-onsite baseline is documented below. The first successful Colab validation run is summarized here; replace the remaining TBD fields after the first longer HF-credit run.
+> Pre-onsite baseline is documented below. The first successful Colab validation run is summarized here; only transcript-reviewed episode comparisons and longer-eval metrics remain open.
 
 | Policy | Success Rate | Avg Reward | Avg Steps | Subgroup Found | Power ≥ 0.80 |
 |--------|-------------|-----------|-----------|---------------|-------------|
 | Random | ~5% | −1.5 ± 0.8 | 95 (timeout) | 2% | 3% |
 | Scripted | ~40% | +2.8 ± 3.2 | 22 ± 6 | 0% | 45% |
-| **Trained (validation)** | **TBD from longer eval** | **+42.07 (3-ep eval avg)** | **15 (eval cap)** | **TBD from transcript review** | **TBD from longer eval** |
+| **Trained (validation)** | **Not measured in 3-ep eval** | **+42.07 (3-ep eval avg)** | **15 (eval cap)** | **Pending transcript review** | **Not measured in 3-ep eval** |
 
 **Run summary to paste after training**
 
@@ -147,7 +147,7 @@ At Expert tier, the `AdversarialDesigner` generates targeted parameter configura
 | Training episodes | `20` |
 | Seed | `42` |
 | Final curriculum tier reached | `TBD (not exported by the Colab notebook summary)` |
-| Best episode reward | `18.528873443603516` |
+| Best episode reward | `18.53` |
 | Most important learned behavior | `Validation run showed stable positive rewards and a modest trained-vs-random eval gap without the earlier flatline failure mode.` |
 
 **Validation snapshot (Colab)**
@@ -157,9 +157,9 @@ At Expert tier, the `AdversarialDesigner` generates targeted parameter configura
 | Trained eval average reward | `42.07` |
 | Random eval average reward | `39.78` |
 | Improvement | `+2.29` |
-| Reward curve best point | `18.528873443603516` |
-| Reward curve final average | `17.5157039642334` |
-| Reward curve final point | `17.29707145690918` |
+| Reward curve best point | `18.53` |
+| Reward curve final average | `17.52` |
+| Reward curve final point | `17.30` |
 | Reward curve trend slope | `0.002` |
 
 **Why the gap matters:** This first Colab run is primarily a validation run. It proves the training, eval, artifact export, and model upload paths work end to end. The next HF-credit run should focus on producing a stronger learning curve and fuller episode-level evidence.

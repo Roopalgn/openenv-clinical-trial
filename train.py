@@ -63,28 +63,53 @@ def _import_trl():
 # ---------------------------------------------------------------------------
 
 
-def _build_action_from_text(text: str, step: int) -> "TrialAction":
+def _build_action_from_text(text: str, step: int, available_actions: list[str] | None = None) -> "TrialAction":
     """Parse a model-generated text into a TrialAction.
 
     Falls back to a safe default action when the text cannot be parsed.
+    If available_actions is provided, validates that the parsed action is among them.
     """
     from models import ActionType, TrialAction
 
-    ACTION_CYCLE = list(ActionType)
+    # Try to extract JSON from the text (handle markdown code blocks, etc.)
+    json_text = text.strip()
+    # Strip markdown code fences
+    if "```" in json_text:
+        parts = json_text.split("```")
+        for part in parts:
+            part = part.strip()
+            if part.startswith("json"):
+                part = part[4:].strip()
+            if part.startswith("{"):
+                json_text = part
+                break
+    # Find the first { ... } block
+    start = json_text.find("{")
+    end = json_text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        json_text = json_text[start:end + 1]
 
     try:
-        data = json.loads(text)
+        data = json.loads(json_text)
+        action_type_str = data.get("action_type", "set_primary_endpoint")
+        # Validate against available actions if provided
+        if available_actions and action_type_str not in available_actions:
+            # Pick the first available action instead of an invalid one
+            action_type_str = available_actions[0] if available_actions else "set_primary_endpoint"
         return TrialAction(
-            action_type=data.get("action_type", ActionType.SET_PRIMARY_ENDPOINT),
+            action_type=action_type_str,
             parameters=data.get("parameters", {}),
             justification=data.get("justification", "model output"),
-            confidence=float(data.get("confidence", 0.5)),
+            confidence=min(max(float(data.get("confidence", 0.7)), 0.0), 1.0),
         )
     except Exception:
-        # Cycle through action types deterministically as fallback
-        action_type = ACTION_CYCLE[step % len(ACTION_CYCLE)]
+        # Fallback: pick a valid action from available_actions, or safe default
+        if available_actions:
+            fallback_type = available_actions[step % len(available_actions)]
+        else:
+            fallback_type = "set_primary_endpoint"
         return TrialAction(
-            action_type=action_type,
+            action_type=fallback_type,
             parameters={},
             justification="fallback: could not parse model output",
             confidence=0.5,
@@ -121,16 +146,18 @@ def rollout_func(
 
     for step_idx in range(max_steps):
         # Build prompt from current observation
+        available = obs.available_actions
         prompt = (
-            f"You are designing a clinical trial.\n\n"
+            f"You are designing a clinical trial. Choose ONE action from the available actions.\n\n"
             f"Scenario: {obs.scenario_description}\n"
+            f"Current phase: {obs.phase_data.get('current_phase', 'unknown')}\n"
             f"Phase data: {json.dumps(obs.phase_data)}\n"
             f"Resources: {json.dumps(obs.resource_status)}\n"
-            f"Available actions: {obs.available_actions}\n"
+            f"Available actions: {available}\n"
             f"Steps taken: {obs.steps_taken}/{obs.max_steps}\n"
             f"Hint: {obs.hint}\n\n"
-            "Respond with a JSON object: "
-            '{"action_type": "...", "parameters": {}, "justification": "...", "confidence": 0.8}'
+            "Respond with ONLY a JSON object. Choose action_type from the available actions list above:\n"
+            '{"action_type": "<one of available actions>", "parameters": {}, "justification": "...", "confidence": 0.8}'
         )
 
         # Tokenize and generate
@@ -151,7 +178,7 @@ def rollout_func(
         response_ids = outputs[0][inputs["input_ids"].shape[1] :]
         response_text = tokenizer.decode(response_ids, skip_special_tokens=True)
 
-        action = _build_action_from_text(response_text, step_idx)
+        action = _build_action_from_text(response_text, step_idx, available)
         next_obs, reward_dict, done, info = env.step_full(action)
 
         total_reward = (
@@ -272,16 +299,36 @@ def _grpo_reward_fn(
 ) -> list[float]:
     """Reward function passed to GRPOTrainer.
 
-    Runs a mini-rollout for each completion and returns the total episode reward.
-    This is called by the trainer during the GRPO update step.
+    Each completion is treated as a SINGLE action decision. We run a full
+    episode with that action as the first step, then continue with fallback
+    actions to see how the episode plays out. This gives GRPO meaningful
+    reward variance between completions.
     """
     rewards = []
     for i, completion in enumerate(completions):
-        env.reset(seed=seed + i)
+        obs = env.reset(seed=seed + i)
         total = 0.0
+        available = obs.available_actions
         for step_idx in range(max_steps):
-            action = _build_action_from_text(completion, step_idx)
-            _, reward_dict, done, _ = env.step_full(action)
+            if step_idx == 0:
+                # First step: use the model's completion
+                action = _build_action_from_text(completion, step_idx, available)
+            else:
+                # Subsequent steps: use available actions from observation
+                if available:
+                    # Pick a phase-appropriate action from available list
+                    fallback_type = available[step_idx % len(available)]
+                else:
+                    fallback_type = "set_primary_endpoint"
+                from models import TrialAction
+                action = TrialAction(
+                    action_type=fallback_type,
+                    parameters={},
+                    justification="continuation step",
+                    confidence=0.7,
+                )
+            obs, reward_dict, done, _ = env.step_full(action)
+            available = obs.available_actions
             total += (
                 sum(reward_dict.values())
                 if isinstance(reward_dict, dict)
@@ -348,7 +395,8 @@ def _dry_run(args: argparse.Namespace) -> None:
         terminal_outcome = "timeout"
 
         for step_idx in range(args.max_steps):
-            action = _build_action_from_text("", step_idx)  # cycles through actions
+            available = obs.available_actions
+            action = _build_action_from_text("", step_idx, available)  # uses available actions
             next_obs, reward_dict, done, _ = env.step_full(action)
             total_reward += (
                 sum(reward_dict.values())
@@ -356,7 +404,7 @@ def _dry_run(args: argparse.Namespace) -> None:
                 else float(reward_dict)
             )
             steps += 1
-            obs = next_obs  # noqa: F841
+            obs = next_obs
             if done:
                 terminal_outcome = "success"
                 break
@@ -504,11 +552,28 @@ def train(args: argparse.Namespace) -> None:
             )
         return rewards
 
-    # Build a minimal dataset — GRPOTrainer needs at least one prompt row
+    # Build a diverse prompt dataset — each prompt uses a different scenario seed
+    # so the model sees different observations during training
     from datasets import Dataset
-    prompt_dataset = Dataset.from_dict(
-        {"prompt": ["Design a clinical trial step by step."] * args.episodes}
-    )
+    prompt_list = []
+    for ep_idx in range(args.episodes):
+        ep_seed = args.seed + ep_idx if args.seed is not None else random.randint(0, 2**31 - 1)
+        obs = env.reset(seed=ep_seed)
+        available = obs.available_actions
+        prompt_text = (
+            f"You are designing a clinical trial. Choose ONE action from the available actions.\n\n"
+            f"Scenario: {obs.scenario_description}\n"
+            f"Current phase: {obs.phase_data.get('current_phase', 'unknown')}\n"
+            f"Phase data: {json.dumps(obs.phase_data)}\n"
+            f"Resources: {json.dumps(obs.resource_status)}\n"
+            f"Available actions: {available}\n"
+            f"Steps taken: {obs.steps_taken}/{obs.max_steps}\n"
+            f"Hint: {obs.hint}\n\n"
+            "Respond with ONLY a JSON object. Choose action_type from the available actions list above:\n"
+            '{"action_type": "<one of available actions>", "parameters": {}, "justification": "...", "confidence": 0.8}'
+        )
+        prompt_list.append(prompt_text)
+    prompt_dataset = Dataset.from_dict({"prompt": prompt_list})
 
     log.info(
         "Starting GRPO training: %d episodes, seed=%d, vllm_mode=%s, "

@@ -22,14 +22,14 @@ Collect these once and paste them into the sections below:
 |------|------|
 | Final model | `Qwen2.5-1.5B-Instruct-bnb-4bit + LoRA (Colab validation)` |
 | Training episodes | `20` |
-| Training runtime | `See completed_at in training_summary.json; duration was not exported separately` |
-| Final success rate | `TBD from longer eval` |
+| Training runtime | `Not exported separately; run completed at 2026-04-25T12:32:29.445902+00:00` |
+| Final success rate | `Not measured in the 3-episode validation eval` |
 | Final avg reward | `42.07 eval avg (trained)` |
-| Best episode reward | `18.528873443603516` |
+| Best episode reward | `18.53` |
 | Most important learned behavior | `Stable positive reward signal with a small trained-vs-random gain after fixing parser/config/runtime issues.` |
 | Reward curve path | `results/reward_curve.png` |
-| Before episode ID | `[FILL]` |
-| After episode ID | `[FILL]` |
+| Before episode ID | `Pending transcript review` |
+| After episode ID | `Pending transcript review` |
 
 ---
 
@@ -74,9 +74,9 @@ Potential-based shaping (γ·φ(s')) gives gradient without distorting optimal p
 
 | Metric | Value |
 |--------|-------|
-| Final success rate | `TBD from longer eval` |
-| Average reward | `42.07 eval avg over 3 episodes` |
-| Best episode reward | `18.528873443603516` |
+| Final success rate | `Not measured in the 3-episode validation eval` |
+| Average reward | `17.52 training mean; 42.07 eval avg over 3 episodes` |
+| Best episode reward | `18.53` |
 | Final curriculum tier | `TBD (not exported by notebook summary)` |
 | Primary learned behavior | `The policy no longer flatlined and consistently produced valid, positive-reward rollouts.` |
 
@@ -84,8 +84,8 @@ Potential-based shaping (γ·φ(s')) gives gradient without distorting optimal p
 
 | Metric | Random | Scripted | **Trained** |
 |--------|--------|----------|---------|
-| Success rate | ~5% | ~40% | **TBD** |
-| Avg reward | -1.5 | +2.8 | **+42.07 (3-ep eval)** |
+| Success rate | ~5% | ~40% | **Not measured in 3-ep eval** |
+| Avg reward | **39.78 (3-ep eval)** | +2.8 | **42.07 (3-ep eval)** |
 | Subgroup found | 2% | 0% | **TBD** |
 
 ### Reward Curve
@@ -98,7 +98,7 @@ Potential-based shaping (γ·φ(s')) gives gradient without distorting optimal p
 
 **Episode 1:** Skips Phase I, hits prerequisites, times out. Reward: -2.5.
 
-**Episode [FILL]:** `Validation run completed end to end and beat the random baseline on a short 3-episode eval, but we still need transcript review to pick the strongest qualitative episode for the final writeup.`
+**Late validation episode (pending exact ID):** `Validation run completed end to end and beat the random baseline on a short 3-episode eval, but transcript review is still needed before we lock the strongest qualitative example into the final writeup.`
 
 ---
 

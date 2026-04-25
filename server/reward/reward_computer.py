@@ -22,14 +22,17 @@ from server.phase_detector import compute_phase_ordering_reward
 from server.rules.fda_rules import check_fda_compliance
 
 # Reward magnitude constants
-_VALIDITY_VALID = 1.0
-_VALIDITY_INVALID = -1.0
+# NOTE: Rebalanced to create discriminative signal for GRPO.
+# Old values (_VALIDITY_VALID=1.0, _EFFICIENCY_SCALE=2.0) created a ~43-point
+# constant baseline per episode that drowned out learning signal.
+_VALIDITY_VALID = 0.1
+_VALIDITY_INVALID = -1.5
 _PENALTY_INVALID = -0.5
 _TERMINAL_SUCCESS = 10.0
 _TERMINAL_CALIBRATION = 5.0
-_INFO_GAIN_BASE = 0.5
-_EFFICIENCY_SCALE = 2.0
-_NOVELTY_BASE = 0.2
+_INFO_GAIN_BASE = 1.5
+_EFFICIENCY_SCALE = 0.3
+_NOVELTY_BASE = 0.3
 
 
 def compute_reward(
@@ -69,6 +72,9 @@ def compute_reward(
     r_terminal_success = _terminal_success_reward(latent, result)
     r_terminal_calibration = _terminal_calibration_reward(latent, result)
 
+    # Add milestone completion bonus to info_gain (progressive learning signal)
+    r_info_gain += _milestone_reward(action, latent)
+
     return RewardBreakdown(
         r_validity=r_validity,
         r_ordering=r_ordering,
@@ -99,14 +105,58 @@ def _info_gain_reward(action: TrialAction, result: TrialResult) -> float:
     }
     if action.action_type not in info_actions:
         return 0.0
-    return _INFO_GAIN_BASE * result.power
+    # Base info gain proportional to power (how useful the experiment was)
+    base = _INFO_GAIN_BASE * max(result.power, 0.1)  # floor at 0.1 so info actions always get something
+    return base
+
+
+# Milestone completion bonus constants
+_MILESTONE_BONUS = 2.0  # Big bonus for reaching new milestones
+
+
+def _milestone_reward(action: TrialAction, latent: TrialLatentState) -> float:
+    """Bonus for actions that complete key milestones for the first time.
+
+    Provides intermediate reward signal that GRPO needs to learn the
+    correct action sequence. Without this, the only high-variance signal
+    comes from terminal rewards which are too rare/sparse.
+    """
+    from models import ActionType
+
+    bonus = 0.0
+    # Phase I completion (dose escalation)
+    if action.action_type == ActionType.RUN_DOSE_ESCALATION and latent.phase_i_complete:
+        bonus += _MILESTONE_BONUS
+    # Effect size estimation
+    if action.action_type == ActionType.ESTIMATE_EFFECT_SIZE and latent.effect_estimated:
+        bonus += _MILESTONE_BONUS * 0.5
+    # Interim analysis completion
+    if action.action_type == ActionType.RUN_INTERIM_ANALYSIS and latent.interim_complete:
+        bonus += _MILESTONE_BONUS
+    # Protocol submission
+    if action.action_type == ActionType.SUBMIT_TO_FDA_REVIEW and latent.protocol_submitted:
+        bonus += _MILESTONE_BONUS * 0.5
+    # Primary analysis (trial complete)
+    if action.action_type == ActionType.RUN_PRIMARY_ANALYSIS and latent.trial_complete:
+        bonus += _MILESTONE_BONUS * 1.5
+    # Patient enrollment (proportional to number enrolled)
+    if action.action_type == ActionType.ENROLL_PATIENTS and latent.patients_enrolled > 0:
+        bonus += _MILESTONE_BONUS * 0.3
+    return bonus
 
 
 def _efficiency_reward(
     latent: TrialLatentState,
     initial_budget: float = 1_000_000.0,
 ) -> float:
-    """Reward proportional to remaining budget (encourages frugality)."""
+    """Reward proportional to remaining budget — ONLY at terminal.
+
+    Changed from per-step to terminal-only to eliminate the massive constant
+    baseline that was drowning out discriminative reward components.
+    Previously gave ~1.9 per step × 15 steps = ~28.5 free reward per episode.
+    """
+    if not latent.trial_complete:
+        return 0.0
     if initial_budget <= 0:
         return 0.0
     budget_fraction = min(max(latent.budget_remaining / initial_budget, 0.0), 1.0)

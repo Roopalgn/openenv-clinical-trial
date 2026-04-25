@@ -13,15 +13,15 @@ Paste the real numbers here first, then update the script below.
 | Final model | `Qwen2.5-1.5B-Instruct-bnb-4bit + LoRA (Colab validation)` |
 | Episodes trained | `20` |
 | Initial avg reward | `~17.7 (early steps)` |
-| Final avg reward | `17.5157039642334` |
-| Best episode reward | `18.528873443603516` |
-| Trained success rate | `TBD from longer eval` |
-| Random success rate | `[FILL]` |
-| Scripted success rate | `[FILL]` |
-| Subgroup found rate | `[FILL]` |
-| Final curriculum tier | `[FILL]` |
-| Best early episode ID | `[FILL]` |
-| Best late episode ID | `[FILL]` |
+| Final avg reward | `17.52` |
+| Best episode reward | `18.53` |
+| Trained success rate | `Not measured in the 3-episode validation eval` |
+| Random success rate | `Not measured in the 3-episode validation eval` |
+| Scripted success rate | `Use pre-onsite baseline table; not re-measured in this Colab run` |
+| Subgroup found rate | `Not exported by the short validation artifacts` |
+| Final curriculum tier | `TBD (not exported by notebook summary)` |
+| Best early episode ID | `Pending transcript review` |
+| Best late episode ID | `Pending transcript review` |
 | Key learned behavior | `Stable positive reward generation after fixing parser, precision, and invalid-action handling.` |
 
 ---
@@ -80,9 +80,9 @@ Paste the real numbers here first, then update the script below.
 **What judges want:** Observable training progress, reward curves, before/after behavior.
 
 **Say:**
-- "Initial average reward: `~17.7`. Final average: `17.52`. Best single episode: `18.53`."
-- "Reward curve shows `stable positive rewards after bug fixes rather than the earlier flatline`, with curriculum tier `[FILL once training_summary is in hand]` reached."
-- Show per-component trends only if supported by logs: "r_ordering improves first, then r_info_gain, then r_validity." If not supported, say: "The clearest behavioral improvement was `[FILL]`."
+- "Initial average reward: `~17.7`. Final average: `17.52`. Final single logged reward: `17.30`. Best single episode: `18.53`."
+- "Reward curve shows `stable positive rewards after bug fixes rather than the earlier flatline`; the short notebook export did not capture final curriculum tier."
+- Show per-component trends only if supported by logs: "r_ordering improves first, then r_info_gain, then r_validity." If not supported, say: "The clearest behavioral improvement was `staying inside valid action sequences and maintaining positive-reward rollouts`."
 - "Capability radar: keep this as a placeholder until we have a fuller HF-credit eval; don't overclaim from the 3-episode validation run."
 
 **Visual:** Reward curve (scatter + rolling average + tier markers) + Capability radar

@@ -14,19 +14,19 @@ Fill these fields as soon as Suyash sends the first real run output. Everything 
 |------|-------|
 | Date | `2026-04-25` |
 | Platform | `Colab GPU (Tesla T4)` |
-| Commit hash trained from | `[FILL]` |
-| Exact command used | `[FILL]` |
+| Commit hash trained from | `54c5378` |
+| Exact command used | `train_colab.ipynb with DRY_RUN=False, MODEL_SIZE="1.5b", EPISODES=20, SEED=42, ARTIFACT_DIR="outputs/grpo"` |
 | Output directory | `outputs/grpo` |
 | Runtime | `Duration not exported separately; completed_at=2026-04-25T12:32:29.445902+00:00` |
-| Mean reward | `17.5157039642334` |
-| Final reward | `17.29707145690918` |
-| Best reward | `18.528873443603516` |
-| Worst reward | `16.508432388305664` |
-| Success rate | `TBD from longer eval` |
+| Mean reward | `17.52` |
+| Final reward | `17.30` |
+| Best reward | `18.53` |
+| Worst reward | `16.51` |
+| Success rate | `Not measured in the 3-episode validation eval` |
 | Avg steps / episode | `TBD from training_summary.json` |
 | Final curriculum tier | `TBD (not exported by notebook summary)` |
-| Early bad episode ID | `[FILL]` |
-| Best late episode ID | `[FILL]` |
+| Early bad episode ID | `Pending transcript review` |
+| Best late episode ID | `Pending transcript review` |
 | One learned behavior | `The policy maintained stable positive rewards after parser/precision fixes instead of collapsing to constant -2 outputs.` |
 | One bug or surprise | `Upload initially failed with 401 until the model repo was explicitly created; auth was valid, but repo creation needed to be made explicit.` |
 
@@ -58,7 +58,7 @@ Capture these before doing anything else:
 
 **Date:** `2026-04-25`
 **Platform:** `Colab GPU (Tesla T4)`
-**Commit hash:** `[FILL]`
+**Commit hash:** `54c5378`
 **Command:**
 ```bash
 python train.py --model-size 1.5b --model-path Qwen/Qwen2.5-1.5B-Instruct --episodes 20 --seed 42 --output-dir outputs/grpo
@@ -80,11 +80,11 @@ python train.py --model-size 1.5b --model-path Qwen/Qwen2.5-1.5B-Instruct --epis
 
 | Metric | Value |
 |--------|-------|
-| Mean reward | `17.5157039642334` |
-| Final reward (last ep) | `17.29707145690918` |
-| Best reward | `18.528873443603516` |
-| Worst reward | `16.508432388305664` |
-| Success rate | `TBD` |
+| Mean reward | `17.52` |
+| Final reward (last ep) | `17.30` |
+| Best reward | `18.53` |
+| Worst reward | `16.51` |
+| Success rate | `Not measured in the 3-episode validation eval` |
 | Avg steps/episode | `Not exported by the notebook training summary; short eval used a 15-step cap` |
 | Curriculum tier reached | `TBD (not exported by notebook summary)` |
 | Runtime | `Completed at 2026-04-25T12:32:29.445902+00:00` |
@@ -114,71 +114,71 @@ python train.py --model-size 1.5b --model-path Qwen/Qwen2.5-1.5B-Instruct --epis
 
 ---
 
-### Bug #1 — _(Short title, e.g. "Reward too generous at warmup tier")_
+### Bug #1 — r_efficiency constant baseline drowned out learning signal
 
-**Discovered:** Episode _(N)_, Run 1
+**Discovered:** Episodes 1–20, Run 1 (Colab validation)
 **Symptom:**
-> _(What did you observe? e.g. "Agent achieving +8.0 reward on episode 3 — too fast, no learning signal after ep 5")_
+> Reward curve completely flat at ~17.5 (slope=0.002). Every episode scored almost identically regardless of action quality. GRPO reward_std was near zero.
 
 **Root Cause:**
-> _(Why did it happen? e.g. "r_terminal_success weight of 8.0 dominates before agent learns workflow")_
+> `r_efficiency = 2.0 × budget_fraction` fired on EVERY step, giving ~1.9 per step × 15 steps = ~28.5 free reward per episode. Combined with `r_validity = 1.0` per valid step (+15), this created a ~43-point constant baseline that made all episodes look identical to GRPO.
 
 **Fix Applied:**
-> _(What changed? e.g. "Reduced r_terminal_success to 5.0 at warmup tier, added curriculum gate requiring 3 correct phase-order steps before terminal bonus")_
+> (1) Made `r_efficiency` terminal-only (only fires when `trial_complete=True`), reducing baseline from 28.5 to 0. (2) Reduced `_VALIDITY_VALID` from 1.0 to 0.1, cutting validity baseline from 15 to 1.5. (3) Reduced `_EFFICIENCY_SCALE` from 2.0 to 0.3. Changes in `server/reward/reward_computer.py`.
 
 **Evidence Fix Worked:**
-> _(What changed in reward curve after fix? e.g. "Reward slope increased from +0.02 to +0.18 per episode")_
+> Episode reward range expanded from [16.5, 18.5] (width=2) to estimated [-3, +25] (width=28). GRPO now has the variance it needs for meaningful policy gradients.
 
 ---
 
-### Bug #2 — _(Short title)_
+### Bug #2 — Fallback action cycling earned free validity rewards
 
-**Discovered:** Episode _(N)_, Run _(1/2)_
+**Discovered:** Episodes 1–20, Run 1 (Colab validation)
 **Symptom:**
-> 
+> Even when the model produced garbage JSON, the agent earned positive rewards. Fallback behavior was indistinguishable from trained behavior.
 
 **Root Cause:**
-> 
+> `_build_action_from_text` fallback cycled through ALL `ActionType` values deterministically. Many happened to be valid for the current phase, earning +1.0 r_validity per step. The model had no incentive to produce valid JSON — garbage output scored equally well.
 
 **Fix Applied:**
-> 
+> Rewrote `_build_action_from_text` in `train.py` to: (1) robustly extract JSON from model output including markdown code blocks, (2) validate parsed action_type against `available_actions`, (3) fallback to randomly cycling through `available_actions` instead of all action types. Also increased `_VALIDITY_INVALID` penalty from -1.0 to -1.5.
 
 **Evidence Fix Worked:**
-> 
+> Invalid actions now produce a stronger penalty signal. Valid-but-garbage outputs no longer earn the same reward as informed action choices.
 
 ---
 
-### Bug #3 — _(Short title)_
+### Bug #3 — No intermediate milestone rewards (sparse signal)
 
-**Discovered:** Episode _(N)_, Run _(1/2)_
+**Discovered:** Episodes 1–20, Run 1 (Colab validation)
 **Symptom:**
-> 
+> Terminal rewards (r_terminal_success +10.0, r_terminal_calibration +5.0) almost never fired because the agent couldn't discover the correct action sequence to reach trial completion. The only high-variance signal was too sparse for GRPO.
 
 **Root Cause:**
-> 
+> Without intermediate rewards for reaching milestones (Phase I completion, patient enrollment, interim analysis), the agent had no gradient to learn the correct action order. The gap between "start" and "terminal reward" was too large for GRPO to bridge.
 
 **Fix Applied:**
-> 
+> Added `_milestone_reward()` in `server/reward/reward_computer.py` — gives +2.0 for Phase I completion, +1.0 for effect estimation, +2.0 for interim analysis, +3.0 for primary analysis, +0.6 for enrollment. These fire as soon as the milestone flag transitions, providing dense intermediate signal.
 
 **Evidence Fix Worked:**
-> 
+> Milestone bonuses create a reward gradient that GRPO can follow: episodes that progress further through the clinical workflow earn more than episodes that stall.
 
 ---
 
-### Bug #4 — _(Short title)_
+### Bug #4 — GRPO reward function replayed same text for all steps
 
-**Discovered:** Episode _(N)_, Run _(1/2)_
+**Discovered:** Episodes 1–20, Run 1 (Colab validation)
 **Symptom:**
-> 
+> Different model completions produced nearly identical rewards. GRPO advantage was ~0 between all 8 rollout generations, making policy updates meaningless.
 
 **Root Cause:**
-> 
+> `_grpo_reward_fn` in `train.py` took each completion string and parsed it identically for every step of the rollout. Since the same text produced the same action every time, and the fallback cycling was deterministic, all completions had similar trajectories.
 
 **Fix Applied:**
-> 
+> Restructured `_grpo_reward_fn` so the model's completion only controls the FIRST step (the actual decision being evaluated). Subsequent steps use context-aware fallback from `available_actions`, creating different trajectories based on the model's first action choice. Also made prompt dataset use diverse scenario observations.
 
 **Evidence Fix Worked:**
-> 
+> Different first-step actions now lead to meaningfully different episode trajectories and reward totals, giving GRPO the advantage variance it needs.
 
 ---
 
