@@ -12,23 +12,23 @@ Fill these fields as soon as Suyash sends the first real run output. Everything 
 
 | Field | Value |
 |------|-------|
-| Date | `[FILL ONSITE]` |
-| Platform | `[FILL: Colab GPU / HF H100 / other]` |
+| Date | `2026-04-25` |
+| Platform | `Colab GPU (Tesla T4)` |
 | Commit hash trained from | `[FILL]` |
 | Exact command used | `[FILL]` |
-| Output directory | `[FILL: e.g. outputs/run_short_1p5b]` |
-| Runtime | `[FILL]` |
-| Mean reward | `[FILL]` |
-| Final reward | `[FILL]` |
-| Best reward | `[FILL]` |
-| Worst reward | `[FILL]` |
-| Success rate | `[FILL]` |
-| Avg steps / episode | `[FILL]` |
-| Final curriculum tier | `[FILL]` |
+| Output directory | `outputs/grpo` |
+| Runtime | `Duration not exported separately; completed_at=2026-04-25T12:32:29.445902+00:00` |
+| Mean reward | `17.5157039642334` |
+| Final reward | `17.29707145690918` |
+| Best reward | `18.528873443603516` |
+| Worst reward | `16.508432388305664` |
+| Success rate | `TBD from longer eval` |
+| Avg steps / episode | `TBD from training_summary.json` |
+| Final curriculum tier | `TBD (not exported by notebook summary)` |
 | Early bad episode ID | `[FILL]` |
 | Best late episode ID | `[FILL]` |
-| One learned behavior | `[FILL]` |
-| One bug or surprise | `[FILL]` |
+| One learned behavior | `The policy maintained stable positive rewards after parser/precision fixes instead of collapsing to constant -2 outputs.` |
+| One bug or surprise | `Upload initially failed with 401 until the model repo was explicitly created; auth was valid, but repo creation needed to be made explicit.` |
 
 ### Sources of Truth
 
@@ -56,44 +56,44 @@ Capture these before doing anything else:
 
 **Goal:** Prove the fixed training path works end to end and produce the first real artifacts without touching the submission Space.
 
-**Date:** `[FILL ONSITE]`
-**Platform:** `[FILL: Colab GPU / HuggingFace H100 / other]`
+**Date:** `2026-04-25`
+**Platform:** `Colab GPU (Tesla T4)`
 **Commit hash:** `[FILL]`
 **Command:**
 ```bash
-python train.py --model-size 1.5b --model-path Qwen/Qwen2.5-1.5B-Instruct --episodes [FILL] --seed 42 --output-dir [FILL]
+python train.py --model-size 1.5b --model-path Qwen/Qwen2.5-1.5B-Instruct --episodes 20 --seed 42 --output-dir outputs/grpo
 ```
 
 **Config:**
 | Param | Value |
 |-------|-------|
 | Model | Qwen2.5-1.5B-Instruct |
-| Precision | `[FILL]` |
-| LoRA rank | `[FILL or default from preset]` |
-| Batch size | `[FILL or default from preset]` |
-| Seq length | `[FILL or default from preset]` |
-| Grad accum | `[FILL or default from preset]` |
+| Precision | `fp16 on T4 (bf16 disabled)` |
+| LoRA rank | `8` |
+| Batch size | `8` |
+| Seq length | `2048` |
+| Grad accum | `1` |
 | Seed | 42 |
-| Episodes | `[FILL]` |
+| Episodes | `20` |
 
 ### Result Summary
 
 | Metric | Value |
 |--------|-------|
-| Mean reward | `[FILL ONSITE]` |
-| Final reward (last ep) | `[FILL ONSITE]` |
-| Best reward | `[FILL ONSITE]` |
-| Worst reward | `[FILL ONSITE]` |
-| Success rate | `[FILL ONSITE]`% |
-| Avg steps/episode | `[FILL ONSITE]` |
-| Curriculum tier reached | `[FILL ONSITE]` |
-| Runtime | `[FILL ONSITE]` |
-| OOM? | No / Yes → fix: `[FILL ONSITE]` |
-| Reward curve PNG | `[FILL: path or attached]` |
+| Mean reward | `17.5157039642334` |
+| Final reward (last ep) | `17.29707145690918` |
+| Best reward | `18.528873443603516` |
+| Worst reward | `16.508432388305664` |
+| Success rate | `TBD` |
+| Avg steps/episode | `Not exported by the notebook training summary; short eval used a 15-step cap` |
+| Curriculum tier reached | `TBD (not exported by notebook summary)` |
+| Runtime | `Completed at 2026-04-25T12:32:29.445902+00:00` |
+| OOM? | `No` |
+| Reward curve PNG | `outputs/grpo/reward_curve.png` |
 
 ### Reward Curve Signal
 
-- [ ] Positive slope (learning signal present)
+- [x] Positive slope (learning signal present, though shallow)
 - [ ] Flat (reward weights need adjustment → see Bug #X below)
 - [ ] Negative slope (reward too sparse / action parsing broken)
 

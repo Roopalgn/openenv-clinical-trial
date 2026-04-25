@@ -10,19 +10,19 @@ Paste the real numbers here first, then update the script below.
 
 | Field | Value |
 |------|------|
-| Final model | `[FILL]` |
-| Episodes trained | `[FILL]` |
-| Initial avg reward | `[FILL]` |
-| Final avg reward | `[FILL]` |
-| Best episode reward | `[FILL]` |
-| Trained success rate | `[FILL]` |
+| Final model | `Qwen2.5-1.5B-Instruct-bnb-4bit + LoRA (Colab validation)` |
+| Episodes trained | `20` |
+| Initial avg reward | `~17.7 (early steps)` |
+| Final avg reward | `17.5157039642334` |
+| Best episode reward | `18.528873443603516` |
+| Trained success rate | `TBD from longer eval` |
 | Random success rate | `[FILL]` |
 | Scripted success rate | `[FILL]` |
 | Subgroup found rate | `[FILL]` |
 | Final curriculum tier | `[FILL]` |
 | Best early episode ID | `[FILL]` |
 | Best late episode ID | `[FILL]` |
-| Key learned behavior | `[FILL]` |
+| Key learned behavior | `Stable positive reward generation after fixing parser, precision, and invalid-action handling.` |
 
 ---
 
@@ -34,7 +34,7 @@ Paste the real numbers here first, then update the script below.
 | Problem | 0:15–0:40 | Innovation (40%) | "$2.6B per drug, 90% fail. Trial design is partially observable, long-horizon, and has objective ground truth — no LLM judge needed." |
 | Env Demo | 0:40–1:30 | Innovation (40%) | Show architecture diagram → 4 scenarios → hidden ground truth → 19 actions → 10-phase workflow. Emphasize: scipy.stats, FDA rule engine, no shortcuts. |
 | Reward & Curriculum | 1:30–2:00 | Rewards (20%) | Show decomposed reward (8+7 components), potential-based shaping, 5-tier curriculum. "Every component is math-verified, independently debuggable." |
-| Training Results | 2:00–2:40 | Rewards (20%) | Show reward curve, before/after episode, and baseline comparison table. Script shell: "Random: [FILL]%. Scripted: [FILL]%. Trained: [FILL]%." |
+| Training Results | 2:00–2:40 | Rewards (20%) | Show reward curve, before/after episode, and baseline comparison table. Script shell: "In our Colab validation run, the trained policy reached 42.07 average reward vs 39.78 for random on a short eval, and the curve stayed stably positive instead of flatlining." |
 | Close | 2:40–3:00 | Storytelling (30%) | "The agent discovered biomarker stratification on its own — a strategy that took clinical researchers decades to formalize." Show capability radar. |
 
 ---
@@ -80,10 +80,10 @@ Paste the real numbers here first, then update the script below.
 **What judges want:** Observable training progress, reward curves, before/after behavior.
 
 **Say:**
-- "Initial average reward: `[FILL ONSITE]`. Final average: `[FILL ONSITE]`. Best single episode: `[FILL ONSITE]`."
-- "Reward curve shows `[FILL ONSITE: upward trend / noisy improvement / recovery after bug fix]`, with curriculum tier `[FILL]` reached."
+- "Initial average reward: `~17.7`. Final average: `17.52`. Best single episode: `18.53`."
+- "Reward curve shows `stable positive rewards after bug fixes rather than the earlier flatline`, with curriculum tier `[FILL once training_summary is in hand]` reached."
 - Show per-component trends only if supported by logs: "r_ordering improves first, then r_info_gain, then r_validity." If not supported, say: "The clearest behavioral improvement was `[FILL]`."
-- "Capability radar: random baseline is a tiny polygon near origin. Trained agent fills `[FILL ONSITE]`%+ on all axes."
+- "Capability radar: keep this as a placeholder until we have a fuller HF-credit eval; don't overclaim from the 3-episode validation run."
 
 **Visual:** Reward curve (scatter + rolling average + tier markers) + Capability radar
 

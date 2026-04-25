@@ -20,13 +20,13 @@ Collect these once and paste them into the sections below:
 
 | Field | Value |
 |------|------|
-| Final model | `[FILL]` |
-| Training episodes | `[FILL]` |
-| Training runtime | `[FILL]` |
-| Final success rate | `[FILL]` |
-| Final avg reward | `[FILL]` |
-| Best episode reward | `[FILL]` |
-| Most important learned behavior | `[FILL]` |
+| Final model | `Qwen2.5-1.5B-Instruct-bnb-4bit + LoRA (Colab validation)` |
+| Training episodes | `20` |
+| Training runtime | `See completed_at in training_summary.json; duration was not exported separately` |
+| Final success rate | `TBD from longer eval` |
+| Final avg reward | `42.07 eval avg (trained)` |
+| Best episode reward | `18.528873443603516` |
+| Most important learned behavior | `Stable positive reward signal with a small trained-vs-random gain after fixing parser/config/runtime issues.` |
 | Reward curve path | `results/reward_curve.png` |
 | Before episode ID | `[FILL]` |
 | After episode ID | `[FILL]` |
@@ -68,29 +68,29 @@ Potential-based shaping (γ·φ(s')) gives gradient without distorting optimal p
 
 ## Section 4: Results
 
-**Setup:** `[FILL: model]` + LoRA `[FILL: rank/config]`, GRPO with `[FILL]` rollouts, `[FILL]` episodes, runtime `[FILL]`.
+**Setup:** `Qwen2.5-1.5B-Instruct-bnb-4bit` + LoRA, GRPO with `8` rollouts, `20` episodes, completed at `2026-04-25T12:32:29.445902+00:00`.
 
 ### Drop-in Metrics
 
 | Metric | Value |
 |--------|-------|
-| Final success rate | `[FILL]` |
-| Average reward | `[FILL]` |
-| Best episode reward | `[FILL]` |
-| Final curriculum tier | `[FILL]` |
-| Primary learned behavior | `[FILL]` |
+| Final success rate | `TBD from longer eval` |
+| Average reward | `42.07 eval avg over 3 episodes` |
+| Best episode reward | `18.528873443603516` |
+| Final curriculum tier | `TBD (not exported by notebook summary)` |
+| Primary learned behavior | `The policy no longer flatlined and consistently produced valid, positive-reward rollouts.` |
 
 ### Baseline Comparison
 
 | Metric | Random | Scripted | **Trained** |
 |--------|--------|----------|---------|
-| Success rate | ~5% | ~40% | **[__]%** |
-| Avg reward | -1.5 | +2.8 | **+[__]** |
-| Subgroup found | 2% | 0% | **[__]%** |
+| Success rate | ~5% | ~40% | **TBD** |
+| Avg reward | -1.5 | +2.8 | **+42.07 (3-ep eval)** |
+| Subgroup found | 2% | 0% | **TBD** |
 
 ### Reward Curve
 
-`[FILL ONSITE: ensure the final curve exists at results/reward_curve.png before publishing]`
+`Validation curve available; replace with the stronger HF-credit run if that curve is clearer for the final blog.`
 
 ![Reward Curve](results/reward_curve.png)
 
@@ -98,7 +98,7 @@ Potential-based shaping (γ·φ(s')) gives gradient without distorting optimal p
 
 **Episode 1:** Skips Phase I, hits prerequisites, times out. Reward: -2.5.
 
-**Episode [FILL]:** `[FILL: 1-2 sentence summary of the strongest trained episode with p-value/power if available]`
+**Episode [FILL]:** `Validation run completed end to end and beat the random baseline on a short 3-episode eval, but we still need transcript review to pick the strongest qualitative episode for the final writeup.`
 
 ---
 
@@ -106,13 +106,13 @@ Potential-based shaping (γ·φ(s')) gives gradient without distorting optimal p
 
 Use this 3-sentence structure:
 
-1. `The first thing the agent learned was [FILL: workflow skill].`
-2. `The most valuable strategic behavior was [FILL: subgroup discovery / enrichment / adaptive sample sizing / futility stop].`
-3. `This mattered because [FILL: statistical or budget impact].`
+1. `The first thing the agent learned was to stay inside the environment's valid action space instead of collapsing into invalid JSON or terminal fallbacks.`
+2. `The most valuable strategic behavior in this validation run was producing stable positive reward rollouts after the parser, precision, and prompt-contract fixes.`
+3. `This mattered because it turned a flatlined training loop into a usable baseline for a larger HF-credit run.`
 
 Ready-to-edit paragraph:
 
-`[FILL ONSITE: 50-70 words. Keep this concrete and tied to transcript evidence, not hype.]`
+`After fixing precision mismatches, brittle JSON parsing, and invalid-action fallbacks, the policy stopped collapsing into constant negative outcomes. The first Colab validation run finished end to end, uploaded a model checkpoint, and showed a modest trained-vs-random eval gain. That makes it a successful pipeline validation, even if the final judged run still needs a stronger reward-improvement story.`
 
 ---
 

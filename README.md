@@ -131,34 +131,46 @@ At Expert tier, the `AdversarialDesigner` generates targeted parameter configura
 
 ## Results
 
-> Pre-onsite baseline is documented below. Replace the trained-policy fields after the first real onsite run, then update once more after the final run if you improve on it.
+> Pre-onsite baseline is documented below. The first successful Colab validation run is summarized here; replace the remaining TBD fields after the first longer HF-credit run.
 
 | Policy | Success Rate | Avg Reward | Avg Steps | Subgroup Found | Power ≥ 0.80 |
 |--------|-------------|-----------|-----------|---------------|-------------|
 | Random | ~5% | −1.5 ± 0.8 | 95 (timeout) | 2% | 3% |
 | Scripted | ~40% | +2.8 ± 3.2 | 22 ± 6 | 0% | 45% |
-| **Trained (onsite)** | **[FILL: __%]** | **[FILL: __ ± __]** | **[FILL: __ ± __]** | **[FILL: __%]** | **[FILL: __%]** |
+| **Trained (validation)** | **TBD from longer eval** | **+42.07 (3-ep eval avg)** | **15 (eval cap)** | **TBD from transcript review** | **TBD from longer eval** |
 
 **Run summary to paste after training**
 
 | Field | Value |
 |------|------|
-| Model | `[FILL: e.g. Qwen2.5-3B-Instruct + LoRA r=16]` |
-| Training episodes | `[FILL]` |
-| Seed | `[FILL]` |
-| Final curriculum tier reached | `[FILL]` |
-| Best episode reward | `[FILL]` |
-| Most important learned behavior | `[FILL: e.g. biomarker stratification, sample-size adaptation, orderly Phase I → II progression]` |
+| Model | `Qwen2.5-1.5B-Instruct-bnb-4bit + LoRA (Colab validation)` |
+| Training episodes | `20` |
+| Seed | `42` |
+| Final curriculum tier reached | `TBD (not exported by the Colab notebook summary)` |
+| Best episode reward | `18.528873443603516` |
+| Most important learned behavior | `Validation run showed stable positive rewards and a modest trained-vs-random eval gap without the earlier flatline failure mode.` |
 
-**Why the gap matters:** Random agent times out or flails because it does not respect workflow. Scripted policy follows a safe sequence but cannot discover hidden responder structure. The trained policy should only claim improvement here after the curve, eval, and episode transcripts all support the story.
+**Validation snapshot (Colab)**
+
+| Metric | Value |
+|------|------|
+| Trained eval average reward | `42.07` |
+| Random eval average reward | `39.78` |
+| Improvement | `+2.29` |
+| Reward curve best point | `18.528873443603516` |
+| Reward curve final average | `17.5157039642334` |
+| Reward curve final point | `17.29707145690918` |
+| Reward curve trend slope | `0.002` |
+
+**Why the gap matters:** This first Colab run is primarily a validation run. It proves the training, eval, artifact export, and model upload paths work end to end. The next HF-credit run should focus on producing a stronger learning curve and fuller episode-level evidence.
 
 ### Reward Curve
 
-`[FILL ONSITE: save final plot to results/reward_curve.png, then remove this line]`
+`Validation run curve saved from Colab. Keep this slot and replace the file in-repo once the HF-credit run is complete.`
 
 ![Reward Curve](results/reward_curve.png)
 
-Caption template: `Reward improves from [FILL] to [FILL] over [FILL] episodes, with [FILL] curriculum tier reached.`
+Caption: `In the first successful Colab validation run, rewards stayed stably positive with a best observed value of 18.53, a final average of 17.52, and a shallow but positive trend slope of 0.002 over 20 episodes.`
 
 ### Before vs After Episode
 
