@@ -1,23 +1,29 @@
-=== Evaluation: 5 episodes on fresh seeds ===
-Both `max_new_tokens` (=256) and `max_length`(=32768) seem to have been set. `max_new_tokens` will take precedence. Please refer to the documentation for more information. (https://huggingface.co/docs/transformers/main/en/main_classes/text_generation)
-/usr/local/lib/python3.12/dist-packages/transformers/modeling_attn_mask_utils.py:71: FutureWarning: The attention mask API under `transformers.modeling_attn_mask_utils` (`AttentionMaskConverter`) is deprecated and will be removed in Transformers v5.10. Please use the new API in `transformers.masking_utils`.
-  warnings.warn(DEPRECATION_MESSAGE, FutureWarning)
-/usr/local/lib/python3.12/dist-packages/transformers/modeling_attn_mask_utils.py:281: FutureWarning: The attention mask API under `transformers.modeling_attn_mask_utils` (`AttentionMaskConverter`) is deprecated and will be removed in Transformers v5.10. Please use the new API in `transformers.masking_utils`.
-  warnings.warn(DEPRECATION_MESSAGE, FutureWarning)
-  Ep 1 (seed=9000): action=set_primary_endpoint conf=0.90 → reward=0.0000
-Both `max_new_tokens` (=256) and `max_length`(=32768) seem to have been set. `max_new_tokens` will take precedence. Please refer to the documentation for more information. (https://huggingface.co/docs/transformers/main/en/main_classes/text_generation)
-  Ep 2 (seed=9001): action=set_primary_endpoint conf=0.90 → reward=0.0000
-Both `max_new_tokens` (=256) and `max_length`(=32768) seem to have been set. `max_new_tokens` will take precedence. Please refer to the documentation for more information. (https://huggingface.co/docs/transformers/main/en/main_classes/text_generation)
-  Ep 3 (seed=9002): action=set_primary_endpoint conf=0.90 → reward=0.0000
-Both `max_new_tokens` (=256) and `max_length`(=32768) seem to have been set. `max_new_tokens` will take precedence. Please refer to the documentation for more information. (https://huggingface.co/docs/transformers/main/en/main_classes/text_generation)
-  Ep 4 (seed=9003): action=set_primary_endpoint conf=0.90 → reward=0.0000
-Both `max_new_tokens` (=256) and `max_length`(=32768) seem to have been set. `max_new_tokens` will take precedence. Please refer to the documentation for more information. (https://huggingface.co/docs/transformers/main/en/main_classes/text_generation)
-  Ep 5 (seed=9004): action=set_primary_endpoint conf=0.90 → reward=0.0000
 
-Eval mean reward: 0.0000 ± 0.0000
+Step	Training Loss	reward	reward_std	completions / mean_length	completions / min_length	completions / max_length	completions / clipped_ratio	completions / mean_terminated_length	completions / min_terminated_length	completions / max_terminated_length	kl	rewards / reward_func / mean	rewards / reward_func / std
+1	0.035970	5.262500	1.114755	55.250000	45.000000	71.000000	0.000000	55.250000	45.000000	71.000000	0.000000	5.262500	1.114755
+2	-0.076657	5.587500	0.839111	68.250000	57.000000	88.000000	0.000000	68.250000	57.000000	88.000000	0.000000	5.587500	0.839111
+3	-0.124268	5.562500	0.903861	56.125000	41.000000	87.000000	0.000000	56.125000	41.000000	87.000000	0.000013	5.562500	0.903861
+4	-0.068444	5.750000	0.462910	71.000000	48.000000	87.000000	0.000000	71.000000	48.000000	87.000000	0.000018	5.750000	0.462910
+5	-0.047185	5.625000	0.517549	65.250000	47.000000	77.000000	0.000000	65.250000	47.000000	77.000000	0.000032	5.625000	0.517549
+6	0.020196	5.625000	0.517549	68.750000	41.000000	94.000000	0.000000	68.750000	41.000000	94.000000	0.000125	5.625000	0.517549
+7	-0.073546	5.875000	0.353553	61.875000	47.000000	94.000000	0.000000	61.875000	47.000000	94.000000	0.000390	5.875000	0.353553
+8	0.041380	5.750000	0.462910	66.875000	45.000000	81.000000	0.000000	66.875000	45.000000	81.000000	0.001274	5.750000	0.462910
+9	-0.086134	5.875000	0.353553	59.500000	42.000000	99.000000	0.000000	59.500000	42.000000	99.000000	0.002730	5.875000	0.353553
+10	0.000001	6.000000	0.000000	65.625000	52.000000	90.000000	0.000000	65.625000	52.000000	90.000000	0.000705	6.000000	0.000000
+11	-0.012394	5.875000	0.353553	57.000000	42.000000	75.000000	0.000000	57.000000	42.000000	75.000000	0.008534	5.875000	0.353553
+12	0.000001	6.000000	0.000000	61.250000	50.000000	81.000000	0.000000	61.250000	50.000000	81.000000	0.001395	6.000000	0.000000
+13	0.000001	6.000000	0.000000	72.250000	51.000000	116.000000	0.000000	72.250000	51.000000	116.000000	0.001338	6.000000	0.000000
+14	0.000002	6.000000	0.000000	63.125000	49.000000	93.000000	0.000000	63.125000	49.000000	93.000000	0.002201	6.000000	0.000000
+15	0.000002	6.000000	0.000000	71.625000	50.000000	98.000000	0.000000	71.625000	50.000000	98.000000	0.001849	6.000000	0.000000
+16	0.000002	6.000000	0.000000	75.375000	43.000000	113.000000	0.000000	75.375000	43.000000	113.000000	0.002648	6.000000	0.000000
+17	0.000002	6.000000	0.000000	69.625000	49.000000	95.000000	0.000000	69.625000	49.000000	95.000000	0.002093	6.000000	0.000000
+18	0.000004	6.000000	0.000000	60.125000	44.000000	119.000000	0.000000	60.125000	44.000000	119.000000	0.003580	6.000000	0.000000
+19	0.000003	6.000000	0.000000	61.125000	42.000000	79.000000	0.000000	61.125000	42.000000	79.000000	0.002593	6.000000	0.000000
+20	0.000003	6.000000	0.000000	62.125000	42.000000	79.000000	0.000000	62.125000	42.000000	79.000000	0.003255	6.000000	0.000000
+21	0.000003	6.000000	0.000000	71.375000	51.000000	96.000000	0.000000	71.375000	51.000000	96.000000	0.003144	6.000000	0.000000
+22	0.000004	6.000000	0.000000	76.875000	54.000000	102.000000	0.000000	76.875000	54.000000	102.000000	0.004384	6.000000	0.000000
+23	0.000003	6.000000	0.000000	63.375000	42.000000	84.000000	0.000000	63.375000	42.000000	84.000000	0.002928	6.000000	0.000000
+24	0.000003	6.000000	0.000000	62.625000	42.000000	152.000000	0.000000	62.625000	42.000000	152.000000	0.003467	6.000000	0.00000
 
-
-Unsloth: Restored added_tokens_decoder metadata in checkpoints/grpo_v3/final/tokenizer_config.json.
-Model checkpoint saved to checkpoints/grpo_v3/final
-
-Done! Download outputs/grpo_v3/ for your results.
+rewards start from 5 and hits a plateau at 6 in the 12th run,i stopped execution after 24th episode
+rewards should ideally start from -2 and gradually slope up towards -14 
