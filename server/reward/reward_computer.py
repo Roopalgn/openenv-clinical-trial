@@ -21,18 +21,17 @@ from models import (
 from server.phase_detector import compute_phase_ordering_reward
 from server.rules.fda_rules import check_fda_compliance
 
-# Reward magnitude constants
-# NOTE: Rebalanced to create discriminative signal for GRPO.
-# Old values (_VALIDITY_VALID=1.0, _EFFICIENCY_SCALE=2.0) created a ~43-point
-# constant baseline per episode that drowned out learning signal.
-_VALIDITY_VALID = 0.1
-_VALIDITY_INVALID = -1.5
+# Reward magnitude constants — V2
+# Tuned for single-step GRPO evaluation.
+# Good valid action: ~3.0 | Mediocre valid: ~0.3 | Invalid: ~-2.5
+_VALIDITY_VALID = 0.2
+_VALIDITY_INVALID = -2.0
 _PENALTY_INVALID = -0.5
 _TERMINAL_SUCCESS = 10.0
 _TERMINAL_CALIBRATION = 5.0
-_INFO_GAIN_BASE = 1.5
+_INFO_GAIN_BASE = 2.0
 _EFFICIENCY_SCALE = 0.3
-_NOVELTY_BASE = 0.3
+_NOVELTY_BASE = 0.5
 
 
 def compute_reward(

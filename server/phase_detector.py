@@ -26,9 +26,9 @@ PHASE_ORDER: list[str] = [
     "submission",
 ]
 
-# Reward constants
-PHASE_BONUS: float = 0.2
-PHASE_SKIP_PENALTY: float = -0.3
+# Reward constants — V2: boosted for single-step GRPO discrimination
+PHASE_BONUS: float = 0.8
+PHASE_SKIP_PENALTY: float = -1.0
 
 # Mapping from ActionType to phase name.
 # literature_review has no direct action — used as default for unknown.
