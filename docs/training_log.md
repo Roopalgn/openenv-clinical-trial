@@ -2,49 +2,108 @@
 
 > **Purpose:** Document every bug, surprise, and fix discovered during training.
 > This IS the Statement 4 co-evolution story: environment improved *because* of the agent.
-> **Fill this live during onsite H100 training runs (Apr 25–26).** Judges read this to evaluate self-improvement.
+> **Fill this live during the short validation run first, then expand for the onsite judged runs.** Judges read this to evaluate self-improvement.
 
 ---
 
-## Run 1 — Onsite H100, Qwen2.5-1.5B-Instruct (20 episodes)
+## Fast Fill Sheet (Use This First)
+
+Fill these fields as soon as Suyash sends the first real run output. Everything below can be derived from this block plus the run artifacts.
+
+| Field | Value |
+|------|-------|
+| Date | `[FILL ONSITE]` |
+| Platform | `[FILL: Colab GPU / HF H100 / other]` |
+| Commit hash trained from | `[FILL]` |
+| Exact command used | `[FILL]` |
+| Output directory | `[FILL: e.g. outputs/run_short_1p5b]` |
+| Runtime | `[FILL]` |
+| Mean reward | `[FILL]` |
+| Final reward | `[FILL]` |
+| Best reward | `[FILL]` |
+| Worst reward | `[FILL]` |
+| Success rate | `[FILL]` |
+| Avg steps / episode | `[FILL]` |
+| Final curriculum tier | `[FILL]` |
+| Early bad episode ID | `[FILL]` |
+| Best late episode ID | `[FILL]` |
+| One learned behavior | `[FILL]` |
+| One bug or surprise | `[FILL]` |
+
+### Sources of Truth
+
+- Metrics source of truth: `training_summary.json`
+- Curve source of truth: reward PNG generated from `reward_log.csv`
+- Qualitative source of truth: episode IDs and transcripts/logs from the run
+
+### If The Short Run Fails
+
+Capture these before doing anything else:
+
+| Field | Value |
+|------|-------|
+| Failure stage | `[FILL: install / model download / CUDA / OOM / training crash / plotting / eval]` |
+| Exact command used | `[FILL]` |
+| Dry-run passed? | `[FILL]` |
+| Tests passed? | `[FILL]` |
+| Last relevant logs | `[FILL]` |
+| Fix attempted | `[FILL]` |
+| Why Colab/HF-credit strategy was reasonable | `[FILL]` |
+
+---
+
+## Run 1 — Short Validation Pass (Use for the current Colab run)
+
+**Goal:** Prove the fixed training path works end to end and produce the first real artifacts without touching the submission Space.
 
 **Date:** `[FILL ONSITE]`
-**Platform:** HuggingFace H100 (80 GB VRAM, BF16)
+**Platform:** `[FILL: Colab GPU / HuggingFace H100 / other]`
+**Commit hash:** `[FILL]`
 **Command:**
 ```bash
-python train.py --model-size 1.5b --model-path Qwen/Qwen2.5-1.5B-Instruct --episodes 20 --seed 42 --output-dir outputs/run1
+python train.py --model-size 1.5b --model-path Qwen/Qwen2.5-1.5B-Instruct --episodes [FILL] --seed 42 --output-dir [FILL]
 ```
 
 **Config:**
 | Param | Value |
 |-------|-------|
 | Model | Qwen2.5-1.5B-Instruct |
-| Precision | BF16 (native H100) |
-| LoRA rank | 8 |
-| Batch size | 1 |
-| Seq length | 2048 |
-| Grad accum | 4 |
+| Precision | `[FILL]` |
+| LoRA rank | `[FILL or default from preset]` |
+| Batch size | `[FILL or default from preset]` |
+| Seq length | `[FILL or default from preset]` |
+| Grad accum | `[FILL or default from preset]` |
 | Seed | 42 |
-| Episodes | 20 |
+| Episodes | `[FILL]` |
 
 ### Result Summary
 
 | Metric | Value |
 |--------|-------|
-| Final reward (ep 20) | `[FILL ONSITE]` |
+| Mean reward | `[FILL ONSITE]` |
+| Final reward (last ep) | `[FILL ONSITE]` |
 | Best reward | `[FILL ONSITE]` |
 | Worst reward | `[FILL ONSITE]` |
 | Success rate | `[FILL ONSITE]`% |
 | Avg steps/episode | `[FILL ONSITE]` |
 | Curriculum tier reached | `[FILL ONSITE]` |
-| Runtime | `[FILL ONSITE]` hrs |
+| Runtime | `[FILL ONSITE]` |
 | OOM? | No / Yes → fix: `[FILL ONSITE]` |
+| Reward curve PNG | `[FILL: path or attached]` |
 
 ### Reward Curve Signal
 
 - [ ] Positive slope (learning signal present)
 - [ ] Flat (reward weights need adjustment → see Bug #X below)
 - [ ] Negative slope (reward too sparse / action parsing broken)
+
+### Immediate Next Actions After This Run
+
+- [ ] Fill the trained row in `README.md`
+- [ ] Fill the metric block in `docs/mini_blog_draft.md`
+- [ ] Fill the top fill-sheet in `docs/internal/pitch_notes.md`
+- [ ] Select one early failure episode and one late better episode
+- [ ] Record one real bug, surprise, or learning observation below
 
 ---
 
@@ -123,6 +182,30 @@ python train.py --model-size 1.5b --model-path Qwen/Qwen2.5-1.5B-Instruct --epis
 
 ---
 
+## Episode Transcripts (Key 3)
+
+> For the short run, capturing just the first and best episode pair is enough. Expand to all 3 after the next larger run.
+
+### Transcript A — Early Failure
+
+**Episode ID:** `[FILL]`
+**Scenario:** `[FILL]`
+**Outcome:** `[FILL]`
+**Total Reward:** `[FILL]`
+**Narrative shell:** `Early in training the agent [FILL failure pattern], which led to [FILL outcome].`
+
+---
+
+### Transcript B — Best Available Late Episode
+
+**Episode ID:** `[FILL]`
+**Scenario:** `[FILL]`
+**Outcome:** `[FILL]`
+**Total Reward:** `[FILL]`
+**Narrative shell:** `Later in training the agent [FILL improved workflow], which led to [FILL measurable outcome].`
+
+---
+
 ## Run 2 — Onsite H100, Scale Up (50 episodes, 3B OR 100 episodes, 1.5B)
 
 **Date:** `[FILL ONSITE]`
@@ -151,7 +234,7 @@ python train.py --model-size 1.5b --model-path Qwen/Qwen2.5-1.5B-Instruct --epis
 
 ## Episode Transcripts (Key 3)
 
-> Extract these from `logs/transcripts.jsonl` after Run 1.
+> Extract these from the full run after Run 2.
 > These are shown to judges as before/after comparison.
 
 ### Transcript A — Episode 1 (Failure)

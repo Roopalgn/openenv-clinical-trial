@@ -21,9 +21,21 @@ A drug works — but only in 15% of patients. The FDA needs proof. Can a small L
 |----------|-----|
 | **Live Environment** | [HuggingFace Space](https://roopalgn-openenv-clinical-trial.hf.space) |
 | **Training Notebook** | [Colab Notebook](train_colab.ipynb) |
-| **Mini-Blog / Writeup** | `[FILL ONSITE]` |
+| **Mini-Blog / Writeup** | [Draft Shell](docs/mini_blog_draft.md) *(replace with published HF blog URL onsite)* |
 | **Code Repository** | [GitHub](https://github.com/Roopalgn/openenv-clinical-trial) |
 | **Architecture** | [ARCHITECTURE.md](ARCHITECTURE.md) |
+
+---
+
+## Onsite Fill Checklist
+
+Before final submission, update these items in this README:
+
+- Replace the writeup link above with the published Hugging Face blog or video URL.
+- Fill the trained-policy row in the Results table with real metrics from the final run.
+- Add the final reward curve image at `results/reward_curve.png`.
+- Add a before/after episode comparison using the best transcript pair from `logs/episode_transcripts/`.
+- Verify every deliverable link works in a logged-out browser: Space, notebook, writeup, repo.
 
 ---
 
@@ -119,18 +131,49 @@ At Expert tier, the `AdversarialDesigner` generates targeted parameter configura
 
 ## Results
 
-> Baseline evaluation at Warmup tier (50 episodes, seed 42). GRPO training results added after onsite H100 runs.
+> Pre-onsite baseline is documented below. Replace the trained-policy fields after the first real onsite run, then update once more after the final run if you improve on it.
 
 | Policy | Success Rate | Avg Reward | Avg Steps | Subgroup Found | Power ≥ 0.80 |
 |--------|-------------|-----------|-----------|---------------|-------------|
 | Random | ~5% | −1.5 ± 0.8 | 95 (timeout) | 2% | 3% |
 | Scripted | ~40% | +2.8 ± 3.2 | 22 ± 6 | 0% | 45% |
-| **Trained (target)** | **~75%** | **+8.5 ± 3.0** | **18 ± 5** | **60%+** | **80%+** |
+| **Trained (onsite)** | **[FILL: __%]** | **[FILL: __ ± __]** | **[FILL: __ ± __]** | **[FILL: __%]** | **[FILL: __%]** |
 
-**Why the gap matters:** Random agent times out 95% of episodes. Scripted agent follows correct workflow but never discovers the hidden EGFR+ subgroup. The trained agent learns to enrich for subgroups — 3× the reward with fewer steps.
+**Run summary to paste after training**
 
-<!-- [FILL ONSITE] Embed reward curve: ![Reward Curve](results/reward_curve.png) -->
-<!-- [FILL ONSITE] Before/after episode comparison -->
+| Field | Value |
+|------|------|
+| Model | `[FILL: e.g. Qwen2.5-3B-Instruct + LoRA r=16]` |
+| Training episodes | `[FILL]` |
+| Seed | `[FILL]` |
+| Final curriculum tier reached | `[FILL]` |
+| Best episode reward | `[FILL]` |
+| Most important learned behavior | `[FILL: e.g. biomarker stratification, sample-size adaptation, orderly Phase I → II progression]` |
+
+**Why the gap matters:** Random agent times out or flails because it does not respect workflow. Scripted policy follows a safe sequence but cannot discover hidden responder structure. The trained policy should only claim improvement here after the curve, eval, and episode transcripts all support the story.
+
+### Reward Curve
+
+`[FILL ONSITE: save final plot to results/reward_curve.png, then remove this line]`
+
+![Reward Curve](results/reward_curve.png)
+
+Caption template: `Reward improves from [FILL] to [FILL] over [FILL] episodes, with [FILL] curriculum tier reached.`
+
+### Before vs After Episode
+
+Use one early failure transcript and one late success transcript.
+
+| Metric | Before Training | After Training |
+|--------|-----------------|----------------|
+| Episode ID | `[FILL]` | `[FILL]` |
+| Total reward | `[FILL]` | `[FILL]` |
+| Steps | `[FILL]` | `[FILL]` |
+| FDA pass rate | `[FILL]` | `[FILL]` |
+| Key behavior | `[FILL]` | `[FILL]` |
+| Outcome | `[FILL]` | `[FILL]` |
+
+Narrative template: `Early in training the agent [FILL failure pattern]. After training it [FILL improved workflow], which led to [FILL measurable outcome].`
 
 ---
 
