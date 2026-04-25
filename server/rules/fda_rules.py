@@ -44,12 +44,16 @@ TRANSITION_TABLE: dict[str, set[ActionType]] = {
         ActionType.MODIFY_SAMPLE_SIZE,
         ActionType.ADD_BIOMARKER_STRATIFICATION,
         ActionType.REQUEST_PROTOCOL_AMENDMENT,
+        ActionType.ESTIMATE_EFFECT_SIZE,
+        ActionType.RUN_INTERIM_ANALYSIS,
     },
     "monitoring": {
         ActionType.RUN_INTERIM_ANALYSIS,
         ActionType.OBSERVE_SAFETY_SIGNAL,
         ActionType.MODIFY_SAMPLE_SIZE,
         ActionType.REQUEST_PROTOCOL_AMENDMENT,
+        ActionType.ESTIMATE_EFFECT_SIZE,
+        ActionType.RUN_PRIMARY_ANALYSIS,
     },
     "analysis": {
         ActionType.RUN_PRIMARY_ANALYSIS,

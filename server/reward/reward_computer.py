@@ -23,17 +23,17 @@ from models import (
 from server.phase_detector import compute_phase_ordering_reward
 from server.rules.fda_rules import check_fda_compliance
 
-# Reward magnitude constants — V2
-# Tuned for single-step GRPO evaluation.
-# Good valid action: ~3.0 | Mediocre valid: ~0.3 | Invalid: ~-2.5
-_VALIDITY_VALID = 0.2
+# Reward magnitude constants — V3
+# Tuned for GRPO: minimise free per-step floor so within-group variance is high.
+# Good valid action: ~1.0 | Mediocre valid: ~0.1 | Invalid: ~-2.5
+_VALIDITY_VALID = 0.05
 _VALIDITY_INVALID = -2.0
 _PENALTY_INVALID = -0.5
-_TERMINAL_SUCCESS = 10.0
-_TERMINAL_CALIBRATION = 5.0
-_INFO_GAIN_BASE = 2.0
+_TERMINAL_SUCCESS = 4.0
+_TERMINAL_CALIBRATION = 2.0
+_INFO_GAIN_BASE = 1.0
 _EFFICIENCY_SCALE = 0.3
-_NOVELTY_BASE = 0.5
+_NOVELTY_BASE = 0.1
 
 
 def compute_reward(
@@ -114,7 +114,7 @@ def _info_gain_reward(action: TrialAction, result: TrialResult) -> float:
 
 
 # Milestone completion bonus constants
-_MILESTONE_BONUS = 2.0  # Big bonus for reaching new milestones
+_MILESTONE_BONUS = 1.0  # Moderate bonus for reaching new milestones
 
 
 def _milestone_reward(action: TrialAction, latent: TrialLatentState) -> float:

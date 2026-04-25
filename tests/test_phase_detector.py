@@ -203,5 +203,5 @@ class TestComputePhaseOrderingReward:
         assert reward == pytest.approx(PHASE_SKIP_PENALTY * 2)
 
     def test_constants_values(self):
-        assert PHASE_BONUS == 0.8
-        assert PHASE_SKIP_PENALTY == -1.0
+        assert PHASE_BONUS == 0.1
+        assert PHASE_SKIP_PENALTY == -0.3
