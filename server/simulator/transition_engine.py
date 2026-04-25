@@ -111,7 +111,7 @@ class TransitionEngine:
         base_time = self._ACTION_TIME_DAYS.get(action.action_type, 0)
 
         if action.action_type == ActionType.ENROLL_PATIENTS:
-            n_patients = action.parameters.get("n_patients", 0)
+            n_patients = max(int(action.parameters.get("n_patients", 0)), 0)
             base_cost = n_patients * self._COST_PER_PATIENT
             base_time = int(n_patients * self._DAYS_PER_PATIENT)
             updated.patients_enrolled += n_patients

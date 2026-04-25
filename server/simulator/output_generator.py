@@ -216,7 +216,9 @@ class OutputGenerator:
                 return False
 
         if action_type == ActionType.SUBMIT_TO_FDA_REVIEW:
-            if not latent.protocol_submitted or not latent.phase_i_complete:
+            # Only require phase_i_complete — protocol_submitted is set BY this
+            # action itself, so checking it here would create a Catch-22.
+            if not latent.phase_i_complete:
                 return False
 
         if action_type == ActionType.RUN_PRIMARY_ANALYSIS:

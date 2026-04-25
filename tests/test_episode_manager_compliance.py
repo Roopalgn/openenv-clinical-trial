@@ -168,6 +168,79 @@ class TestPowerCache:
         assert len(em._power_cache) == 2
 
 
+# ---------------------------------------------------------------------------
+# M6: Episode done guard
+# ---------------------------------------------------------------------------
+
+
+class TestEpisodeDoneGuard:
+    """M6: step() must raise RuntimeError after episode ends."""
+
+    def test_step_after_done_raises(self) -> None:
+        em = EpisodeManager()
+        em.reset(seed=42)
+        em._episode_done = True
+        action = _make_action(ActionType.SET_PRIMARY_ENDPOINT)
+        with pytest.raises(RuntimeError, match="Episode already finished"):
+            em.step(action)
+
+
+# ---------------------------------------------------------------------------
+# M8: Invalid steps count toward step limit
+# ---------------------------------------------------------------------------
+
+
+class TestInvalidStepCounting:
+    """M8: invalid actions increment step count and can trigger done."""
+
+    def test_invalid_steps_increment_step_count(self) -> None:
+        em = EpisodeManager()
+        em.reset(seed=42)
+        # SUBMIT_TO_FDA_REVIEW is invalid in literature_review phase
+        action = _make_action(ActionType.SUBMIT_TO_FDA_REVIEW)
+        em.step(action)
+        em.step(action)
+        assert em._step_count == 2
+
+    def test_100_invalid_steps_terminates(self) -> None:
+        em = EpisodeManager()
+        em.reset(seed=42)
+        action = _make_action(ActionType.RUN_PRIMARY_ANALYSIS)
+        done = False
+        for i in range(100):
+            _, _, done, _ = em.step(action)
+            if done:
+                assert i == 99, f"Episode ended at step {i}, expected 99"
+                break
+        assert done, "Episode did not terminate after 100 invalid steps"
+
+
+# ---------------------------------------------------------------------------
+# M13: Timeout penalty
+# ---------------------------------------------------------------------------
+
+
+class TestTimeoutPenalty:
+    """M13: timed-out episodes get flat penalty reward."""
+
+    def test_timeout_gives_penalty_reward(self) -> None:
+        em = EpisodeManager()
+        em.reset(seed=42)
+        # Use a valid repeating action so steps advance normally
+        action = _make_action(ActionType.SET_PRIMARY_ENDPOINT, endpoint="os")
+        last_reward = None
+        for _ in range(100):
+            _, reward, done, _ = em.step(action)
+            last_reward = reward
+            if done:
+                break
+        assert done, "Episode did not reach done"
+        # Timeout (not trial_complete) should give penalty
+        assert last_reward is not None
+        assert last_reward.r_validity == -0.5
+        assert last_reward.r_penalty == -1.5
+
+
 class TestRoundTripProperty:
     """Req 14.4: same seed after cache clear produces identical results."""
 

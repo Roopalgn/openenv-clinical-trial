@@ -55,6 +55,8 @@ TRANSITION_TABLE: dict[str, set[ActionType]] = {
         ActionType.RUN_PRIMARY_ANALYSIS,
         ActionType.ESTIMATE_EFFECT_SIZE,
         ActionType.SYNTHESIZE_CONCLUSION,
+        ActionType.SUBMIT_TO_FDA_REVIEW,
+        ActionType.SUBMIT_TO_FDA_REVIEW,
     },
     "submission": {
         ActionType.SUBMIT_TO_FDA_REVIEW,

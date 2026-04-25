@@ -297,7 +297,7 @@ class EpisodeManager:
 
             if not compliance.valid:
                 reward = RewardBreakdown(
-                    r_validity=-1.0,
+                    r_validity=-2.0,
                     r_ordering=0.0,
                     r_info_gain=0.0,
                     r_efficiency=0.0,
@@ -309,6 +309,54 @@ class EpisodeManager:
                 done = self._step_count >= _MAX_STEPS
                 if done:
                     self._episode_done = True
+                    # Curriculum + logging for invalid-only episode ends
+                    self._episode_history.append(False)
+                    self._episode_outcomes.append(
+                        {
+                            "success": False,
+                            "scenario_id": self._scenario.scenario_id,
+                            "true_effect_size": self._latent.true_effect_size,
+                            "dropout_rate": self._latent.dropout_rate,
+                        }
+                    )
+                    metrics = EpisodeMetrics(
+                        success=False,
+                        episode_history=self._episode_history,
+                    )
+                    self._curriculum_tier = advance_curriculum(
+                        self._curriculum_tier, metrics
+                    )
+                    if self._logger is not None:
+                        self._logger.log_summary(
+                            scenario_id=self._scenario.scenario_id,
+                            total_reward=self._total_reward,
+                            episode_length=self._step_count,
+                            terminal_outcome="timeout_invalid",
+                        )
+                    # Curriculum + logging for invalid-only episode ends
+                    self._episode_history.append(False)
+                    self._episode_outcomes.append(
+                        {
+                            "success": False,
+                            "scenario_id": self._scenario.scenario_id,
+                            "true_effect_size": self._latent.true_effect_size,
+                            "dropout_rate": self._latent.dropout_rate,
+                        }
+                    )
+                    metrics = EpisodeMetrics(
+                        success=False,
+                        episode_history=self._episode_history,
+                    )
+                    self._curriculum_tier = advance_curriculum(
+                        self._curriculum_tier, metrics
+                    )
+                    if self._logger is not None:
+                        self._logger.log_summary(
+                            scenario_id=self._scenario.scenario_id,
+                            total_reward=self._total_reward,
+                            episode_length=self._step_count,
+                            terminal_outcome="timeout_invalid",
+                        )
                 step_idx = len(self._latent.action_history)
                 info: dict = {
                     "step_index": step_idx,
@@ -501,6 +549,9 @@ class EpisodeManager:
                 r_terminal_calibration=0.0,
             )
             step_idx = len(self._latent.action_history) if self._latent else 0
+            done = self._step_count >= _MAX_STEPS
+            if done:
+                self._episode_done = True
             info = {
                 "step_index": step_idx,
                 "action_valid": False,
@@ -530,7 +581,7 @@ class EpisodeManager:
                     steps_taken=step_idx,
                     max_steps=_MAX_STEPS,
                     rule_violations=[f"Internal error: {exc}"],
-                    done=False,
+                    done=done,
                     reward=reward.total,
                     scenario_description=(
                         self._scenario.description if self._scenario else ""
@@ -547,11 +598,11 @@ class EpisodeManager:
                     steps_taken=step_idx,
                     max_steps=_MAX_STEPS,
                     hint="",
-                    done=False,
+                    done=done,
                     reward=0.0,
                 )
             )
-            return obs, reward, False, info
+            return obs, reward, done, info
 
     def get_state(self) -> TrialState:
         """Return the current TrialState (training-loop metadata)."""
