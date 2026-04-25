@@ -381,9 +381,16 @@ class TrialJudge:
         # ------------------------------------------------------------------
         # Overconfidence penalty
         # ------------------------------------------------------------------
+        # Only penalise overconfidence for FDA compliance violations, not for
+        # power/p-value checks which always fail early in the episode.
+        # This prevents the penalty from becoming a blanket "never use high
+        # confidence" signal that degrades the confidence mechanism.
         overconfidence_penalty = 0.0
-        if not passed and action.confidence >= _HIGH_CONFIDENCE_THRESHOLD:
-            overconfidence_penalty = _OVERCONFIDENCE_PENALTY * len(violations)
+        fda_violations = compliance.violations if not compliance.valid else []
+        budget_violations = [v for v in violations if "budget" in v.lower()]
+        actionable_violations = fda_violations + budget_violations
+        if actionable_violations and action.confidence >= _HIGH_CONFIDENCE_THRESHOLD:
+            overconfidence_penalty = _OVERCONFIDENCE_PENALTY * len(actionable_violations)
 
         # ------------------------------------------------------------------
         # Layer 2: Persona-scaled feedback (never overrides Layer 1 result)

@@ -101,11 +101,8 @@ def check_fda_compliance(
             )
 
     if action.action_type == ActionType.SUBMIT_TO_FDA_REVIEW:
-        if not latent.protocol_submitted:
-            violations.append(
-                "Cannot submit to FDA review: protocol has not been submitted yet "
-                "(protocol_submitted=False)."
-            )
+        # Note: protocol_submitted is set BY this action in TransitionEngine,
+        # so we only require phase_i_complete as a prerequisite.
         if not latent.phase_i_complete:
             violations.append(
                 "Cannot submit to FDA review: Phase I has not been completed "

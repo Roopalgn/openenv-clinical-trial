@@ -329,7 +329,11 @@ class TestFDAComplianceInvalidActions:
         )
 
     def test_submit_fda_review_without_protocol(self):
-        """SUBMIT_TO_FDA_REVIEW without protocol_submitted=True → valid=False."""
+        """SUBMIT_TO_FDA_REVIEW without phase_i_complete needs only phase_i.
+
+        protocol_submitted prereq was removed (M3 fix: chicken-and-egg).
+        With phase_i_complete=True and correct phase, this should now be valid.
+        """
         latent = self._make_base_latent(
             episode_phase="submission",
             protocol_submitted=False,
@@ -337,13 +341,10 @@ class TestFDAComplianceInvalidActions:
         )
         action = _make_action(ActionType.SUBMIT_TO_FDA_REVIEW)
         result = check_fda_compliance(action, latent)
-        assert result.valid is False, (
+        assert result.valid is True, (
             f"seed={FIXED_SEED} | step=0 | field=valid | "
-            f"expected False for SUBMIT_TO_FDA_REVIEW without protocol, got True"
-        )
-        assert any("protocol" in v.lower() for v in result.violations), (
-            f"seed={FIXED_SEED} | step=0 | field=violations | "
-            f"expected protocol violation message, got {result.violations}"
+            f"expected True for SUBMIT_TO_FDA_REVIEW with phase_i but no protocol, "
+            f"got {result.valid}. Violations: {result.violations}"
         )
 
     def test_submit_fda_review_without_phase_i(self):
@@ -634,9 +635,16 @@ class TestComputeReward:
         )
 
     def test_novelty_reward_zero_for_repeated_action(self):
-        """r_novelty must be 0 when the action type has already been used."""
+        """r_novelty must be 0 when the action type has already been used.
+
+        action_history includes the current action (appended by TransitionEngine)
+        plus a prior use, so [:-1] still contains the action type.
+        """
         latent = self._make_latent(
-            action_history=[ActionType.SET_PRIMARY_ENDPOINT.value],
+            action_history=[
+                ActionType.SET_PRIMARY_ENDPOINT.value,
+                ActionType.SET_PRIMARY_ENDPOINT.value,
+            ],
             episode_phase="hypothesis",
         )
         action = _make_action(

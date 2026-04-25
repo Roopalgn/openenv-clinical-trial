@@ -230,7 +230,8 @@ def test_no_overconfidence_penalty_when_passed():
 
 def test_overconfidence_penalty_scales_with_violation_count():
     judge = TrialJudge()
-    # Multiple violations: budget + low power + non-significant p-value
+    # Budget violation is an actionable violation that triggers overconfidence.
+    # Power/p-value violations are excluded from penalty (M7 fix).
     latent = _make_latent(
         budget_remaining=0.0,
         true_effect_size=0.0,
@@ -238,7 +239,8 @@ def test_overconfidence_penalty_scales_with_violation_count():
     )
     action = _make_action(confidence=0.9)
     result = judge.verify(action, _make_state(), latent)
-    assert result.overconfidence_penalty <= -1.0  # at least 2 violations × -0.5
+    # Only budget violation counts for overconfidence penalty now
+    assert result.overconfidence_penalty <= -0.5  # at least 1 actionable violation × -0.5
 
 
 # ---------------------------------------------------------------------------

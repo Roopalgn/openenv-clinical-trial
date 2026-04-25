@@ -15,7 +15,7 @@ def calculate_power(effect_size: float, n: int, alpha: float = 0.05) -> float:
     """Calculate statistical power for a two-sample t-test.
 
     Uses the normal approximation: power = P(Z > z_alpha - delta) where
-    delta = effect_size * sqrt(n/2).
+    delta = effect_size * sqrt(n_per_arm).
 
     Args:
         effect_size: Cohen's d (standardised effect size).
@@ -35,7 +35,7 @@ def calculate_power(effect_size: float, n: int, alpha: float = 0.05) -> float:
 
     # Non-centrality parameter for two-sample test with equal group sizes
     n_per_arm = n / 2.0
-    ncp = abs(effect_size) * math.sqrt(n_per_arm / 2.0)
+    ncp = abs(effect_size) * math.sqrt(n_per_arm)
 
     # Power = P(reject H0 | H1 true)
     power = norm.sf(z_alpha - ncp) + norm.cdf(-z_alpha - ncp)

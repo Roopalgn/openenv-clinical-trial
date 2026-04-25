@@ -139,14 +139,14 @@ class TransitionEngine:
         # --- Soft violation: degrade data quality ---
         # If action confidence is low (< 0.5), increase measurement noise
         if action.confidence < 0.5:
-            degradation_factor = 1.0 + (0.5 - action.confidence)
+            degradation = 0.05 * (0.5 - action.confidence)
             updated.measurement_noise = min(
-                updated.measurement_noise * degradation_factor, 0.5
+                updated.measurement_noise + degradation, 0.5
             )
 
         # If budget is negative (soft violation), degrade site variability
         if updated.budget_remaining < 0:
-            updated.site_variability = min(updated.site_variability * 1.2, 0.5)
+            updated.site_variability = min(updated.site_variability + 0.03, 0.5)
 
         # If time is negative (soft violation), increase dropout rate
         if updated.time_remaining_days < 0:
@@ -204,9 +204,19 @@ class TransitionEngine:
             ActionType.OBSERVE_SAFETY_SIGNAL,
             ActionType.RUN_DOSE_ESCALATION,
         }:
-            # Adverse events increase site variability slightly
-            if rng.random() < updated.true_side_effect_rate:
-                updated.adverse_events += 1
-                updated.site_variability = min(updated.site_variability + 0.02, 0.5)
+            # For ENROLL_PATIENTS, scale AEs with number of patients
+            n_exposed = 1
+            if action.action_type == ActionType.ENROLL_PATIENTS:
+                n_exposed = max(action.parameters.get("n_patients", 1), 1)
+            # Each exposed patient has independent AE chance
+            ae_count = sum(
+                1 for _ in range(n_exposed)
+                if rng.random() < updated.true_side_effect_rate
+            )
+            if ae_count > 0:
+                updated.adverse_events += ae_count
+                updated.site_variability = min(
+                    updated.site_variability + 0.02 * ae_count, 0.5
+                )
 
         return updated

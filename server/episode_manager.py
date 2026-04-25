@@ -150,6 +150,9 @@ class EpisodeManager:
         self._adversarial_designer: AdversarialDesigner = AdversarialDesigner()
         self._transition_engine: TransitionEngine = TransitionEngine()
         self._judge: TrialJudge = TrialJudge()
+        self._initial_budget: float = 1_000_000.0  # M4: randomized budget
+        self._step_count: int = 0  # M8: counts ALL step() calls
+        self._episode_done: bool = False  # M6: prevents stepping after done
 
     # ------------------------------------------------------------------
     # Public API
@@ -237,6 +240,9 @@ class EpisodeManager:
         # Step 5: Clear power cache (Req 14.3)
         self._clear_cache()
         self._phase_history = []
+        self._step_count = 0
+        self._episode_done = False
+        self._initial_budget = float(randomized.budget_usd)
 
         # Step 6: Fresh logger (episode_id matches this episode), reward accumulator
         self._logger = EpisodeLogger(
@@ -280,6 +286,10 @@ class EpisodeManager:
         """
         if self._latent is None or self._scenario is None:
             raise RuntimeError("No active episode. Call reset() before step().")
+        if self._episode_done:
+            raise RuntimeError("Episode already finished. Call reset() to start a new one.")
+
+        self._step_count += 1
 
         try:
             # Step 1: Check FDA compliance (read-only, does not mutate state)
@@ -296,7 +306,9 @@ class EpisodeManager:
                     r_terminal_success=0.0,
                     r_terminal_calibration=0.0,
                 )
-                done = False
+                done = self._step_count >= _MAX_STEPS
+                if done:
+                    self._episode_done = True
                 step_idx = len(self._latent.action_history)
                 info: dict = {
                     "step_index": step_idx,
@@ -313,7 +325,7 @@ class EpisodeManager:
                     steps_taken=step_idx,
                     max_steps=_MAX_STEPS,
                     rule_violations=compliance.violations,
-                    done=False,
+                    done=done,
                     reward=reward.total,
                     scenario_description=self._scenario.description,
                     hint="",
@@ -345,18 +357,18 @@ class EpisodeManager:
                 latent=self._latent,
                 result=result,
                 phase_history=self._phase_history[:-1],  # history before this step
-                initial_budget=float(self._scenario.budget_usd),
+                initial_budget=self._initial_budget,
             )
 
             # Add potential-based shaping bonus: γ·(φ(s') − φ(s))
-            initial_budget = float(self._scenario.budget_usd)
+            initial_budget = self._initial_budget
             shaped_bonus = shaping_bonus(
                 latent=latent_before,
                 next_latent=self._latent,
                 initial_budget=initial_budget,
             )
             reward = reward.model_copy(
-                update={"r_ordering": reward.r_ordering + shaped_bonus}
+                update={"r_info_gain": reward.r_info_gain + shaped_bonus}
             )
 
             # Step 6: TrialJudge verification (hint + overconfidence penalty)
@@ -376,7 +388,22 @@ class EpisodeManager:
 
             # Step 7: Check terminal condition
             step_idx = len(self._latent.action_history)
-            done = step_idx >= _MAX_STEPS or self._latent.trial_complete
+            done = self._step_count >= _MAX_STEPS or self._latent.trial_complete
+            if done:
+                self._episode_done = True
+
+            # M13: Timeout penalty — if episode timed out without completing trial
+            if done and not self._latent.trial_complete:
+                reward = RewardBreakdown(
+                    r_validity=-0.5,
+                    r_ordering=0.0,
+                    r_info_gain=0.0,
+                    r_efficiency=0.0,
+                    r_novelty=0.0,
+                    r_penalty=-1.5,
+                    r_terminal_success=0.0,
+                    r_terminal_calibration=0.0,
+                )
 
             # Step 8: Generate noisy observation via OutputGenerator
             noise_model = self._noise_model or NoiseModel(seed=self._latent.seed)

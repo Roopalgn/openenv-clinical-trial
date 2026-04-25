@@ -12,6 +12,8 @@ Requirements 6.1–6.6:
 
 from __future__ import annotations
 
+import math
+
 from models import (
     RewardBreakdown,
     TrialAction,
@@ -104,6 +106,8 @@ def _info_gain_reward(action: TrialAction, result: TrialResult) -> float:
     }
     if action.action_type not in info_actions:
         return 0.0
+    if not math.isfinite(result.power):
+        return 0.0
     # Base info gain proportional to power (how useful the experiment was)
     base = _INFO_GAIN_BASE * max(result.power, 0.1)  # floor at 0.1 so info actions always get something
     return base
@@ -114,32 +118,42 @@ _MILESTONE_BONUS = 2.0  # Big bonus for reaching new milestones
 
 
 def _milestone_reward(action: TrialAction, latent: TrialLatentState) -> float:
-    """Bonus for actions that complete key milestones for the first time.
+    """Bonus for actions that complete key milestones for the FIRST time only.
 
     Provides intermediate reward signal that GRPO needs to learn the
-    correct action sequence. Without this, the only high-variance signal
-    comes from terminal rewards which are too rare/sparse.
+    correct action sequence. Only fires once per milestone to prevent
+    degenerate "repeat the same action" exploit.
     """
     from models import ActionType
 
+    # Count how many times this action has been taken (TransitionEngine already
+    # appended it, so count >= 1 for current action).
+    action_count = latent.action_history.count(action.action_type.value)
+
     bonus = 0.0
-    # Phase I completion (dose escalation)
-    if action.action_type == ActionType.RUN_DOSE_ESCALATION and latent.phase_i_complete:
+    # Phase I completion (dose escalation) — first time only
+    if (action.action_type == ActionType.RUN_DOSE_ESCALATION
+            and latent.phase_i_complete and action_count == 1):
         bonus += _MILESTONE_BONUS
-    # Effect size estimation
-    if action.action_type == ActionType.ESTIMATE_EFFECT_SIZE and latent.effect_estimated:
+    # Effect size estimation — first time only
+    if (action.action_type == ActionType.ESTIMATE_EFFECT_SIZE
+            and latent.effect_estimated and action_count == 1):
         bonus += _MILESTONE_BONUS * 0.5
-    # Interim analysis completion
-    if action.action_type == ActionType.RUN_INTERIM_ANALYSIS and latent.interim_complete:
+    # Interim analysis completion — first time only
+    if (action.action_type == ActionType.RUN_INTERIM_ANALYSIS
+            and latent.interim_complete and action_count == 1):
         bonus += _MILESTONE_BONUS
-    # Protocol submission
-    if action.action_type == ActionType.SUBMIT_TO_FDA_REVIEW and latent.protocol_submitted:
+    # Protocol submission — first time only
+    if (action.action_type == ActionType.SUBMIT_TO_FDA_REVIEW
+            and latent.protocol_submitted and action_count == 1):
         bonus += _MILESTONE_BONUS * 0.5
-    # Primary analysis (trial complete)
-    if action.action_type == ActionType.RUN_PRIMARY_ANALYSIS and latent.trial_complete:
+    # Primary analysis (trial complete) — first time only
+    if (action.action_type == ActionType.RUN_PRIMARY_ANALYSIS
+            and latent.trial_complete and action_count == 1):
         bonus += _MILESTONE_BONUS * 1.5
-    # Patient enrollment (proportional to number enrolled)
-    if action.action_type == ActionType.ENROLL_PATIENTS and latent.patients_enrolled > 0:
+    # Patient enrollment — first time only (not per-repeat)
+    if (action.action_type == ActionType.ENROLL_PATIENTS
+            and latent.patients_enrolled > 0 and action_count == 1):
         bonus += _MILESTONE_BONUS * 0.3
     return bonus
 
@@ -164,7 +178,10 @@ def _efficiency_reward(
 
 def _novelty_reward(action: TrialAction, latent: TrialLatentState) -> float:
     """Small bonus for action types not yet used in this episode."""
-    if action.action_type.value not in latent.action_history:
+    # TransitionEngine appends the current action before compute_reward runs,
+    # so exclude the last entry to check novelty correctly.
+    prior_history = latent.action_history[:-1] if latent.action_history else []
+    if action.action_type.value not in prior_history:
         return _NOVELTY_BASE
     return 0.0
 
@@ -173,6 +190,8 @@ def _terminal_success_reward(latent: TrialLatentState, result: TrialResult) -> f
     """Positive reward when the episode ends with a successful trial (req 6.4)."""
     if latent.trial_complete and result.success and result.failure_reason is None:
         return _TERMINAL_SUCCESS
+    if latent.trial_complete:
+        return -1.0
     return 0.0
 
 
@@ -187,6 +206,8 @@ def _terminal_calibration_reward(
         return 0.0
 
     ci_low, ci_high = result.confidence_interval
+    if not (math.isfinite(ci_low) and math.isfinite(ci_high)):
+        return 0.0
     ci_width = ci_high - ci_low
     ci_centre = (ci_low + ci_high) / 2.0
     true_effect = latent.true_effect_size
