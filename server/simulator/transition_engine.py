@@ -152,6 +152,51 @@ class TransitionEngine:
         if updated.time_remaining_days < 0:
             updated.dropout_rate = min(updated.dropout_rate * 1.15, 0.8)
 
+        # --- Phase progression (G23) ---
+        # Advance episode_phase based on the action taken so the phase detector
+        # and rule engine see a moving phase rather than a stuck "literature_review".
+        # Phase names must match TRANSITION_TABLE keys in fda_rules.py.
+        _PHASE_TRANSITIONS: dict[ActionType, str] = {
+            ActionType.SET_PRIMARY_ENDPOINT: "hypothesis",
+            ActionType.ESTIMATE_EFFECT_SIZE: "hypothesis",
+            ActionType.SET_SAMPLE_SIZE: "design",
+            ActionType.SET_INCLUSION_CRITERIA: "design",
+            ActionType.SET_EXCLUSION_CRITERIA: "design",
+            ActionType.SET_DOSING_SCHEDULE: "design",
+            ActionType.SET_CONTROL_ARM: "design",
+            ActionType.SET_RANDOMIZATION_RATIO: "design",
+            ActionType.SET_BLINDING: "design",
+            ActionType.ADD_BIOMARKER_STRATIFICATION: "design",
+            ActionType.REQUEST_PROTOCOL_AMENDMENT: "design",
+            ActionType.ENROLL_PATIENTS: "enrollment",
+            ActionType.RUN_DOSE_ESCALATION: "enrollment",
+            ActionType.OBSERVE_SAFETY_SIGNAL: "enrollment",
+            ActionType.MODIFY_SAMPLE_SIZE: "enrollment",
+            ActionType.RUN_INTERIM_ANALYSIS: "monitoring",
+            ActionType.RUN_PRIMARY_ANALYSIS: "analysis",
+            ActionType.SYNTHESIZE_CONCLUSION: "analysis",
+            ActionType.SUBMIT_TO_FDA_REVIEW: "submission",
+        }
+        # Only advance — never go backwards
+        _PHASE_ORDER = [
+            "literature_review",
+            "hypothesis",
+            "design",
+            "enrollment",
+            "monitoring",
+            "analysis",
+            "submission",
+        ]
+        target_phase = _PHASE_TRANSITIONS.get(action.action_type)
+        if target_phase is not None:
+            try:
+                current_idx = _PHASE_ORDER.index(updated.episode_phase)
+                target_idx = _PHASE_ORDER.index(target_phase)
+                if target_idx > current_idx:
+                    updated.episode_phase = target_phase
+            except ValueError:
+                updated.episode_phase = target_phase
+
         # --- Adverse event recording (stochastic) ---
         # On certain actions, record adverse events based on true_side_effect_rate
         if action.action_type in {

@@ -467,21 +467,48 @@ def train(args: argparse.Namespace) -> None:
         seed=args.seed,
     )
 
-    # Instantiate GRPOTrainer with LoRA + GRPO config (Req 11.1)
-    # The manual rollout loop below drives episode-level reward CSV logging;
-    # trainer.train() can be called instead for full GRPO weight updates.
-    _trainer = GRPOTrainer(  # noqa: F841
-        model=model,
-        args=grpo_config,
-        peft_config=lora_config,
-        tokenizer=tokenizer,
-    )
-
-    # Reward CSV logger
+    # Reward CSV logger — populated via a callback during trainer.train()
     reward_csv = RewardCSVLogger(Path(args.output_dir) / "reward_log.csv")
-
     episode_rewards: list[float] = []
     final_tier = 0
+
+    # Closure passed to GRPOTrainer as the reward function (Req 11.1, 11.4)
+    def _reward_fn(completions: list[str], **kwargs) -> list[float]:
+        ep = len(episode_rewards)
+        ep_seed = args.seed + ep if args.seed is not None else random.randint(0, 2**31 - 1)
+        rewards = _grpo_reward_fn(
+            completions=completions,
+            env=env,
+            seed=ep_seed,
+            max_steps=args.max_steps,
+        )
+        total_reward = sum(rewards)
+        episode_rewards.append(total_reward)
+        reward_csv.log(
+            episode=ep,
+            seed=ep_seed,
+            total_reward=total_reward,
+            steps=args.max_steps,
+            terminal_outcome="grpo",
+        )
+        nonlocal final_tier
+        try:
+            final_tier = int(env.state.curriculum_tier)
+        except Exception:
+            pass
+        if ep % 10 == 0:
+            mean_r = sum(episode_rewards) / len(episode_rewards)
+            log.info(
+                "Episode %d | reward=%.4f | mean=%.4f | tier=%d",
+                ep + 1, total_reward, mean_r, final_tier,
+            )
+        return rewards
+
+    # Build a minimal dataset — GRPOTrainer needs at least one prompt row
+    from datasets import Dataset
+    prompt_dataset = Dataset.from_dict(
+        {"prompt": ["Design a clinical trial step by step."] * args.episodes}
+    )
 
     log.info(
         "Starting GRPO training: %d episodes, seed=%d, vllm_mode=%s, "
@@ -493,61 +520,16 @@ def train(args: argparse.Namespace) -> None:
         args.max_steps,
     )
 
-    for ep in range(args.episodes):
-        ep_seed = (
-            args.seed + ep if args.seed is not None else random.randint(0, 2**31 - 1)
-        )
-
-        # Run one rollout episode directly via env (Req 11.4)
-        experiences = rollout_func(
-            env=env,
-            model=model,
-            tokenizer=tokenizer,
-            seed=ep_seed,
-            max_steps=args.max_steps,
-            num_generations=args.num_generations,
-        )
-
-        total_reward = sum(e["reward"] for e in experiences)
-        steps_taken = len(experiences)
-        terminal_outcome = (
-            "success" if (experiences and experiences[-1]["done"]) else "timeout"
-        )
-
-        episode_rewards.append(total_reward)
-
-        # Log per-episode reward to CSV (Req 11.1)
-        reward_csv.log(
-            episode=ep,
-            seed=ep_seed,
-            total_reward=total_reward,
-            steps=steps_taken,
-            terminal_outcome=terminal_outcome,
-        )
-        if (ep + 1) % 10 == 0:
-            log.info(
-                "Checkpoint marker at episode %d → %s",
-                ep + 1,
-                Path(args.output_dir) / f"checkpoint_ep{ep+1}",
-            )
-
-        # Update curriculum tier from env state
-        try:
-            state = env.state
-            final_tier = int(state.curriculum_tier)
-        except Exception:
-            pass
-
-        if (ep + 1) % 10 == 0 or ep == 0:
-            mean_r = sum(episode_rewards) / len(episode_rewards)
-            log.info(
-                "Episode %d/%d | reward=%.4f | mean=%.4f | tier=%d",
-                ep + 1,
-                args.episodes,
-                total_reward,
-                mean_r,
-                final_tier,
-            )
+    # Instantiate and run GRPOTrainer (Req 11.1)
+    trainer = GRPOTrainer(
+        model=model,
+        args=grpo_config,
+        peft_config=lora_config,
+        tokenizer=tokenizer,
+        reward_funcs=_reward_fn,
+        train_dataset=prompt_dataset,
+    )
+    trainer.train()
 
     # Write training summary on completion (Req 11.2)
     summary_path = Path(args.output_dir) / "training_summary.json"
