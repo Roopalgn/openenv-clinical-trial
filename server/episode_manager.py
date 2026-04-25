@@ -48,6 +48,72 @@ from server.simulator.trial_simulator import simulate_trial
 _MAX_STEPS = 100
 
 
+def _latent_biology_from_scenario(scenario: ScenarioConfig) -> dict:
+    """Return scenario-specific hidden biology values for TrialLatentState."""
+    scenario_id = scenario.scenario_id
+    if scenario_id in {"solid_tumor_chemo", "solid_tumor_chemo_warmup"}:
+        return {
+            "true_responder_population": "EGFR+",
+            "true_responder_criteria": ["EGFR_mutation"],
+            "true_dose_response": {
+                50.0: 0.08,
+                100.0: 0.19,
+                150.0: 0.31,
+                200.0: 0.29,
+                250.0: 0.22,
+            },
+            "true_mechanism": "EGFR tyrosine kinase inhibition",
+        }
+    if scenario_id == "autoimmune_biologic":
+        return {
+            "true_responder_population": "all",
+            "true_responder_criteria": ["RA_diagnosis"],
+            "true_dose_response": {
+                50.0: 0.12,
+                100.0: 0.28,
+                150.0: 0.38,
+                200.0: 0.42,
+                250.0: 0.35,
+                300.0: 0.22,
+                400.0: 0.10,
+            },
+            "true_mechanism": "IL-6 receptor blockade",
+        }
+    if scenario_id == "cns_depression":
+        return {
+            "true_responder_population": "severe_trd",
+            "true_responder_criteria": ["MADRS>=35"],
+            "true_dose_response": {
+                25.0: 0.06,
+                50.0: 0.14,
+                75.0: 0.18,
+                100.0: 0.17,
+                150.0: 0.12,
+            },
+            "true_mechanism": "NMDA pathway modulation",
+        }
+    if scenario_id == "rare_disease_orphan":
+        return {
+            "true_responder_population": "all",
+            "true_responder_criteria": ["Morquio_A_confirmed"],
+            "true_dose_response": {
+                0.5: 0.40,
+                1.0: 0.80,
+                2.0: 1.20,
+                3.0: 1.15,
+                4.0: 0.95,
+            },
+            "true_mechanism": "enzyme replacement therapy",
+        }
+    # Fallback for generated or unknown scenarios.
+    return {
+        "true_responder_population": "all",
+        "true_responder_criteria": [],
+        "true_dose_response": {},
+        "true_mechanism": "unknown",
+    }
+
+
 def _phase_order_correct_at(phase: str, prior_history: list[str]) -> bool:
     """Return True if `phase` is a valid next phase given `prior_history`."""
     from server.phase_detector import PHASE_ORDER
@@ -80,6 +146,7 @@ class EpisodeManager:
         self._noise_model: NoiseModel | None = None
         self._curriculum_tier: int = settings.curriculum_start_tier
         self._episode_history: list[bool] = []  # rolling success history for curriculum
+        self._episode_outcomes: list[dict] = []  # richer history for adversarial analysis
         self._adversarial_designer: AdversarialDesigner = AdversarialDesigner()
         self._transition_engine: TransitionEngine = TransitionEngine()
         self._judge: TrialJudge = TrialJudge()
@@ -111,10 +178,7 @@ class EpisodeManager:
         current_difficulty = self._curriculum_tier / 4.0
         if current_difficulty > EXPERT_DIFFICULTY_THRESHOLD and self._episode_history:
             weak_spots = self._adversarial_designer.analyze_failures(
-                [
-                    {"success": s, "true_effect_size": None, "dropout_rate": None}
-                    for s in self._episode_history
-                ]
+                self._episode_outcomes
             )
             scenario = self._adversarial_designer.generate_scenario(weak_spots)
         else:
@@ -138,15 +202,16 @@ class EpisodeManager:
         true_side = float(rng.uniform(side_lo, side_hi))
         true_placebo = float(rng.uniform(placebo_lo, placebo_hi))
         true_dropout = float(rng.uniform(dropout_lo, dropout_hi))
+        latent_biology = _latent_biology_from_scenario(scenario)
 
         # Step 3: Build TrialLatentState — holds ALL hidden + tracking state
         self._latent = TrialLatentState(
             true_effect_size=true_effect,
             true_side_effect_rate=true_side,
-            true_responder_population="all",
-            true_responder_criteria=[],
-            true_dose_response={},
-            true_mechanism="unknown",
+            true_responder_population=latent_biology["true_responder_population"],
+            true_responder_criteria=latent_biology["true_responder_criteria"],
+            true_dose_response=latent_biology["true_dose_response"],
+            true_mechanism=latent_biology["true_mechanism"],
             placebo_response_rate=true_placebo,
             dropout_rate=true_dropout,
             site_variability=0.0,
@@ -366,6 +431,14 @@ class EpisodeManager:
             if done:
                 episode_success = self._latent.trial_complete
                 self._episode_history.append(episode_success)
+                self._episode_outcomes.append(
+                    {
+                        "success": episode_success,
+                        "scenario_id": self._scenario.scenario_id,
+                        "true_effect_size": self._latent.true_effect_size,
+                        "dropout_rate": self._latent.dropout_rate,
+                    }
+                )
                 metrics = EpisodeMetrics(
                     success=episode_success,
                     episode_history=self._episode_history,
