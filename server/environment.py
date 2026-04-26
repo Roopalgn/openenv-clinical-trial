@@ -50,7 +50,13 @@ class Environment(BaseEnvironment[TrialAction, TrialObservation, TrialState]):
             Initial TrialObservation for the new episode.
         """
         self._reset_rubric()
-        obs = self._manager.reset(seed=seed)
+        curriculum_tier = kwargs.get("curriculum_tier")
+        freeze_curriculum = kwargs.get("freeze_curriculum", False)
+        obs = self._manager.reset(
+            seed=seed,
+            curriculum_tier_override=curriculum_tier,
+            freeze_curriculum=bool(freeze_curriculum),
+        )
         self._last_obs = obs
         return self._apply_transform(obs)
 

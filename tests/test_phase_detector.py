@@ -38,15 +38,14 @@ def _action(action_type: ActionType) -> TrialAction:
 class TestPhaseMapping:
     def test_hypothesis_actions(self):
         for at in [
+            ActionType.SET_PRIMARY_ENDPOINT,
             ActionType.ESTIMATE_EFFECT_SIZE,
-            ActionType.ADD_BIOMARKER_STRATIFICATION,
         ]:
             phase, _ = detect_phase(_action(at), [])
             assert phase == "hypothesis", f"{at} should map to hypothesis"
 
     def test_design_actions(self):
         design_actions = [
-            ActionType.SET_PRIMARY_ENDPOINT,
             ActionType.SET_SAMPLE_SIZE,
             ActionType.SET_INCLUSION_CRITERIA,
             ActionType.SET_EXCLUSION_CRITERIA,
@@ -54,23 +53,26 @@ class TestPhaseMapping:
             ActionType.SET_CONTROL_ARM,
             ActionType.SET_RANDOMIZATION_RATIO,
             ActionType.SET_BLINDING,
+            ActionType.ADD_BIOMARKER_STRATIFICATION,
             ActionType.REQUEST_PROTOCOL_AMENDMENT,
         ]
         for at in design_actions:
             phase, _ = detect_phase(_action(at), [])
             assert phase == "design", f"{at} should map to design"
 
-    def test_enrollment_action(self):
-        phase, _ = detect_phase(_action(ActionType.ENROLL_PATIENTS), [])
-        assert phase == "enrollment"
-
-    def test_monitoring_actions(self):
-        monitoring_actions = [
+    def test_enrollment_actions(self):
+        enrollment_actions = [
+            ActionType.ENROLL_PATIENTS,
             ActionType.RUN_DOSE_ESCALATION,
             ActionType.OBSERVE_SAFETY_SIGNAL,
-            ActionType.RUN_INTERIM_ANALYSIS,
             ActionType.MODIFY_SAMPLE_SIZE,
         ]
+        for at in enrollment_actions:
+            phase, _ = detect_phase(_action(at), [])
+            assert phase == "enrollment", f"{at} should map to enrollment"
+
+    def test_monitoring_actions(self):
+        monitoring_actions = [ActionType.RUN_INTERIM_ANALYSIS]
         for at in monitoring_actions:
             phase, _ = detect_phase(_action(at), [])
             assert phase == "monitoring", f"{at} should map to monitoring"
@@ -123,10 +125,11 @@ class TestPhaseOrderCorrectness:
         """Walk through the full phase sequence and verify all transitions are correct."""
         history: list[str] = []
         sequence = [
-            ActionType.ESTIMATE_EFFECT_SIZE,  # hypothesis
-            ActionType.SET_PRIMARY_ENDPOINT,  # design
+            ActionType.SET_PRIMARY_ENDPOINT,  # hypothesis
+            ActionType.SET_SAMPLE_SIZE,  # design
             ActionType.ENROLL_PATIENTS,  # enrollment
-            ActionType.RUN_DOSE_ESCALATION,  # monitoring
+            ActionType.RUN_DOSE_ESCALATION,  # enrollment (same phase)
+            ActionType.RUN_INTERIM_ANALYSIS,  # monitoring
             ActionType.RUN_PRIMARY_ANALYSIS,  # analysis
             ActionType.SUBMIT_TO_FDA_REVIEW,  # submission
         ]

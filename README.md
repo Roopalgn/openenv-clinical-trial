@@ -312,7 +312,7 @@ openenv-clinical-trial/
 │   ├── episode_manager.py      # Episode lifecycle
 │   ├── simulator/              # Trial simulation engine
 │   ├── rules/                  # FDA compliance engine
-│   ├── reward/                 # 15-component decomposed reward
+│   ├── reward/                 # 8-component decomposed reward
 │   ├── curriculum/             # 5-tier adaptive curriculum
 │   ├── judge.py                # Multi-layer verification
 │   └── logger.py               # Episode JSONL + reward CSV

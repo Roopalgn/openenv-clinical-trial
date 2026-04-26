@@ -296,3 +296,39 @@ class TestRoundTripProperty:
         _, reward2, _, _ = em.step(action)
 
         assert reward1.total == reward2.total
+
+
+class TestCurriculumControl:
+    """Reset-time curriculum controls must keep reward distribution stationary."""
+
+    def test_curriculum_tier_override_selects_requested_tier(self) -> None:
+        em = EpisodeManager()
+        em.reset(seed=42, curriculum_tier_override=3, freeze_curriculum=True)
+        assert em._scenario is not None
+        assert em._scenario.curriculum_tier == 3
+
+    def test_freeze_curriculum_prevents_tier_advance_on_episode_end(self) -> None:
+        em = EpisodeManager()
+        start_tier = em._curriculum_tier
+        em.reset(seed=123, freeze_curriculum=True)
+
+        sequence = [
+            _make_action(ActionType.SET_PRIMARY_ENDPOINT),
+            _make_action(ActionType.SET_SAMPLE_SIZE, sample_size=60),
+            _make_action(ActionType.SET_INCLUSION_CRITERIA),
+            _make_action(ActionType.SET_DOSING_SCHEDULE),
+            _make_action(ActionType.SET_CONTROL_ARM),
+            _make_action(ActionType.ENROLL_PATIENTS, n_patients=60),
+            _make_action(ActionType.RUN_DOSE_ESCALATION),
+            _make_action(ActionType.RUN_INTERIM_ANALYSIS),
+            _make_action(ActionType.RUN_PRIMARY_ANALYSIS),
+        ]
+
+        done = False
+        for action in sequence:
+            _, _, done, _ = em.step(action)
+            if done:
+                break
+
+        assert done, "Expected terminal episode for curriculum freeze test"
+        assert em._curriculum_tier == start_tier

@@ -153,12 +153,19 @@ class EpisodeManager:
         self._initial_budget: float = 1_000_000.0  # M4: randomized budget
         self._step_count: int = 0  # M8: counts ALL step() calls
         self._episode_done: bool = False  # M6: prevents stepping after done
+        self._freeze_curriculum: bool = False
+        self._curriculum_tier_override: int | None = None
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
-    def reset(self, seed: int | None = None) -> TrialObservation:
+    def reset(
+        self,
+        seed: int | None = None,
+        curriculum_tier_override: int | None = None,
+        freeze_curriculum: bool = False,
+    ) -> TrialObservation:
         """Initialize a new episode and return the initial TrialObservation.
 
         Seeded resets are reproducible: same seed → same scenario selection
@@ -175,17 +182,32 @@ class EpisodeManager:
         # Step 1: Select scenario via CurriculumController (Req 8.3, 8.5)
         # Use a seeded RNG so scenario selection is reproducible for same seed.
         scenario_rng = np.random.default_rng(resolved_seed)
+        if curriculum_tier_override is not None:
+            resolved_override = max(0, min(int(curriculum_tier_override), 4))
+        else:
+            resolved_override = None
+        self._curriculum_tier_override = resolved_override
+        self._freeze_curriculum = bool(freeze_curriculum)
+        effective_tier = (
+            resolved_override
+            if resolved_override is not None
+            else self._curriculum_tier
+        )
 
         # At expert tier (difficulty > 0.80), use AdversarialDesigner to generate
         # a targeted scenario based on the agent's tracked weak spots.
-        current_difficulty = self._curriculum_tier / 4.0
-        if current_difficulty > EXPERT_DIFFICULTY_THRESHOLD and self._episode_history:
+        current_difficulty = effective_tier / 4.0
+        if (
+            resolved_override is None
+            and current_difficulty > EXPERT_DIFFICULTY_THRESHOLD
+            and self._episode_history
+        ):
             weak_spots = self._adversarial_designer.analyze_failures(
                 self._episode_outcomes
             )
             scenario = self._adversarial_designer.generate_scenario(weak_spots)
         else:
-            scenario = select_scenario(self._curriculum_tier, scenario_rng)
+            scenario = select_scenario(effective_tier, scenario_rng)
         self._scenario = scenario
 
         # Step 2: Apply domain randomization via NoiseModel (Req 9.1, 9.2)
@@ -319,13 +341,17 @@ class EpisodeManager:
                             "dropout_rate": self._latent.dropout_rate,
                         }
                     )
-                    metrics = EpisodeMetrics(
-                        success=False,
-                        episode_history=self._episode_history,
-                    )
-                    self._curriculum_tier = advance_curriculum(
-                        self._curriculum_tier, metrics
-                    )
+                    if (
+                        not self._freeze_curriculum
+                        and self._curriculum_tier_override is None
+                    ):
+                        metrics = EpisodeMetrics(
+                            success=False,
+                            episode_history=self._episode_history,
+                        )
+                        self._curriculum_tier = advance_curriculum(
+                            self._curriculum_tier, metrics
+                        )
                     if self._logger is not None:
                         self._logger.log_summary(
                             scenario_id=self._scenario.scenario_id,
@@ -481,7 +507,11 @@ class EpisodeManager:
 
             # Advance curriculum tier at episode end (Issue #2)
             if done:
-                episode_success = self._latent.trial_complete
+                episode_success = (
+                    self._latent.trial_complete
+                    and result.success
+                    and result.failure_reason is None
+                )
                 self._episode_history.append(episode_success)
                 self._episode_outcomes.append(
                     {
@@ -491,13 +521,17 @@ class EpisodeManager:
                         "dropout_rate": self._latent.dropout_rate,
                     }
                 )
-                metrics = EpisodeMetrics(
-                    success=episode_success,
-                    episode_history=self._episode_history,
-                )
-                self._curriculum_tier = advance_curriculum(
-                    self._curriculum_tier, metrics
-                )
+                if (
+                    not self._freeze_curriculum
+                    and self._curriculum_tier_override is None
+                ):
+                    metrics = EpisodeMetrics(
+                        success=episode_success,
+                        episode_history=self._episode_history,
+                    )
+                    self._curriculum_tier = advance_curriculum(
+                        self._curriculum_tier, metrics
+                    )
 
             info = {
                 "step_index": step_idx,

@@ -1,6 +1,7 @@
 # Onsite Roadmap — Apr 25–26 (Scaler Campus, Bangalore)
 
 > Execute GRPO training on H100, generate deliverables, rehearse pitch.
+> Historical execution plan retained for context; several P0 items below are now already implemented in the current codebase.
 > **Deadline:** 5:00 PM April 26 — Google Form submission on campus.
 
 ---
@@ -43,9 +44,9 @@ cat outputs/verify/training_summary.json
 rm -rf outputs/verify
 ```
 
-### P0 Code Fixes (~2 hrs)
+### P0 Code Fixes (~2 hrs, Historical)
 
-Fix these BEFORE any training run — they affect reward signal quality.
+These were the Day-1 gap fixes that were prioritized for reward-signal quality.
 
 | Fix | What | Who | How |
 |-----|------|-----|-----|

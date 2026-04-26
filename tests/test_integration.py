@@ -53,9 +53,9 @@ def _make_action(action_type: ActionType, **params) -> TrialAction:
 def _run_episode(seed: int) -> tuple[list[TrialObservation], TrialLatentState]:
     """Run a full episode until done=True using a repeating valid action.
 
-    The episode_phase stays 'literature_review' throughout (the TransitionEngine
-    does not auto-advance phases). We cycle through the three actions valid in
-    that phase until the step limit (100) is reached and done=True.
+    We cycle through actions that remain valid as the episode phase progresses.
+    This intentionally stresses deterministic stepping and reproducibility until
+    the environment reaches a terminal condition.
 
     Returns:
         (observations, final_latent_state)
