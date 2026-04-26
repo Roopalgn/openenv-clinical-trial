@@ -131,12 +131,12 @@ At Expert tier, the `AdversarialDesigner` generates targeted parameter configura
 
 ## Results
 
-> Results will be filled after the onsite training run. The training notebook (`train_colab.ipynb`) uses a smart action sequence approach where the model outputs design decisions and a fixed prerequisite-correct sequence executes the trial.
+> Results will be filled after the onsite training run. The training notebook (`train_colab.ipynb`) now trains on full episode action plans: the model outputs the ordered clinical actions, and the reward function executes exactly those actions with no hidden fallback sequence.
 
 | Policy | Avg Reward | Steps | Description |
 |--------|-----------|-------|-------------|
-| Random design | varies | 9–10 | Random sample_size and biomarker choice |
-| **Trained (GRPO)** | **[FILL after run]** | **9–10** | **Model learns optimal sample_size and biomarker strategy** |
+| Random action plan | varies | 1–12 | Random ordered action list, often invalid or incomplete |
+| **Trained (GRPO)** | **[FILL after run]** | **9–12** | **Model learns valid phase ordering, enrollment, analysis, and design parameters** |
 
 **Run summary (fill after training)**
 
