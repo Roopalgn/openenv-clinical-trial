@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git fetch:*)",
+      "Bash(rm -f docs/internal/hf_run_guide.md docs/internal/submission_checklist.md docs/internal/suyash_handoff_template.md docs/training_log.md docs/prompt.md docs/grpo_v3_guide.md docs/audit_and_fix_plan_v4.md train_colab_v2.ipynb train_colab_v3.ipynb)",
+      "Bash(ls *.ipynb)",
+      "Bash(python3:*)",
+      "Bash(python:*)"
+    ]
+  }
+}

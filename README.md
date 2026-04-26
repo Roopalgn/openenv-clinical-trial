@@ -54,13 +54,13 @@ We built an RL environment where an LLM agent learns to design clinical trials t
 | Property | Why It Fits OpenEnv |
 |----------|-------------------|
 | **Partially observable** | True effect size, responder subgroup, safety profile, dose-response — all hidden from the agent |
-| **Long-horizon** | 55–100 steps across Phase I → Phase II → regulatory → analysis |
+| **Long-horizon** | 9–10 step action sequence across 7 clinical phases with prerequisite dependencies |
 | **Objective verification** | `scipy.stats` power calculations, FDA rule engine, trial simulation against hidden ground truth |
 | **Real constraints** | FDA ICH E9 rules codified as hard constraints, randomized budgets and timelines |
 | **Domain randomization** | Budget ±30%, time ±20%, dropout ±15%, placebo ±20% — no memorization possible |
 | **Novel** | First OpenEnv environment for clinical trial design |
 
-Clinical trial design is uniquely suited because it is a **real professional task with math-verified outcomes**. Unlike game or code environments, the agent must plan over 55–100 steps under genuine partial observability, satisfy hard legal constraints, and produce designs whose quality is measured by `scipy.stats` power calculations against hidden ground truth. The 5-tier adaptive curriculum with domain randomization ensures the agent cannot memorize solutions.
+Clinical trial design is uniquely suited because it is a **real professional task with math-verified outcomes**. Unlike game or code environments, the agent must make design decisions under genuine partial observability, satisfy hard legal constraints, and produce designs whose quality is measured by `scipy.stats` power calculations against hidden ground truth. The 5-tier adaptive curriculum with domain randomization ensures the agent cannot memorize solutions.
 
 ---
 
@@ -71,13 +71,13 @@ Clinical trial design is uniquely suited because it is a **real professional tas
 | **Hidden Ground Truth** | `TrialLatentState` — true effect size, responder subgroup, safety profile invisible to agent |
 | **Objective Verification** | `scipy.stats` power, FDA rule engine, trial simulation — no LLM judge for core metrics |
 | **19-Action Space** | Design (8) · Phase I (3) · Phase II (3) · Regulatory (2) · Analysis (2) · Terminal (1) |
-| **10-Phase Workflow** | Phase-order bonus (+0.2) and skip penalty (−0.3) enforce realistic trial progression |
-| **15-Component Reward** | 8 per-step + 7 terminal, each independently verifiable. Range: −3 to +14 |
+| **7-Phase Workflow** | Phase-order bonus (+0.1) and skip penalty (−0.3) enforce realistic trial progression |
+| **8-Component Reward** | 6 per-step + 2 terminal, each independently verifiable. Range: −3 to +15 |
 | **5-Tier Curriculum** | Warmup → Beginner → Intermediate → Advanced → Expert with per-scenario mastery |
 | **Domain Randomization** | Seeded `NoiseModel` with ±30% budget, ±20% time, ±15% dropout, ±20% placebo |
 | **Multi-Layer Judge** | Programmatic ground-truth + rule engine + optional LLM judge (junior→principal) |
 | **Training Pipeline** | GRPO via TRL 0.29.0 + vLLM colocate + LoRA on Qwen2.5 (1.5B/3B/7B) |
-| **249 Tests** | Full coverage, ruff lint clean, CI green |
+| **Comprehensive Tests** | Full coverage, ruff lint clean |
 
 ---
 
@@ -131,38 +131,23 @@ At Expert tier, the `AdversarialDesigner` generates targeted parameter configura
 
 ## Results
 
-> Pre-onsite baseline is documented below. The first successful Colab validation run is summarized here; only transcript-reviewed episode comparisons and longer-eval metrics remain open.
+> Results will be filled after the onsite training run. The training notebook (`train_colab.ipynb`) uses a smart action sequence approach where the model outputs design decisions and a fixed prerequisite-correct sequence executes the trial.
 
-| Policy | Success Rate | Avg Reward | Avg Steps | Subgroup Found | Power ≥ 0.80 |
-|--------|-------------|-----------|-----------|---------------|-------------|
-| Random | ~5% | −1.5 ± 0.8 | 95 (timeout) | 2% | 3% |
-| Scripted | ~40% | +2.8 ± 3.2 | 22 ± 6 | 0% | 45% |
-| **Trained (validation)** | **Not measured in 3-ep eval** | **+42.07 (3-ep eval avg)** | **15 (eval cap)** | **Pending transcript review** | **Not measured in 3-ep eval** |
+| Policy | Avg Reward | Steps | Description |
+|--------|-----------|-------|-------------|
+| Random design | varies | 9–10 | Random sample_size and biomarker choice |
+| **Trained (GRPO)** | **[FILL after run]** | **9–10** | **Model learns optimal sample_size and biomarker strategy** |
 
-**Run summary to paste after training**
+**Run summary (fill after training)**
 
 | Field | Value |
 |------|------|
-| Model | `Qwen2.5-1.5B-Instruct-bnb-4bit + LoRA (Colab validation)` |
+| Model | `Qwen2.5-1.5B-Instruct-bnb-4bit + LoRA` |
 | Training episodes | `20` |
 | Seed | `42` |
-| Final curriculum tier reached | `TBD (not exported by the Colab notebook summary)` |
-| Best episode reward | `18.53` |
-| Most important learned behavior | `Validation run showed stable positive rewards and a modest trained-vs-random eval gap without the earlier flatline failure mode.` |
-
-**Validation snapshot (Colab)**
-
-| Metric | Value |
-|------|------|
-| Trained eval average reward | `42.07` |
-| Random eval average reward | `39.78` |
-| Improvement | `+2.29` |
-| Reward curve best point | `18.53` |
-| Reward curve final average | `17.52` |
-| Reward curve final point | `17.30` |
-| Reward curve trend slope | `0.002` |
-
-**Why the gap matters:** This first Colab run is primarily a validation run. It proves the training, eval, artifact export, and model upload paths work end to end. The next HF-credit run should focus on producing a stronger learning curve and fuller episode-level evidence.
+| Best episode reward | `[FILL]` |
+| Final avg reward | `[FILL]` |
+| Trend slope | `[FILL]` |
 
 ### Reward Curve
 
@@ -189,38 +174,32 @@ Narrative template: `Early in training the agent [FILL failure pattern]. After t
 
 ---
 
-## Reward Structure (15 components)
+## Reward Structure (8 components)
 
-### Per-Step Reward (8 components)
+### Per-Step Reward (6 components)
 
 ```
-r_step = r_validity + r_ordering + r_info_gain + r_efficiency + r_novelty + r_penalty + r_shaping
+r_step = r_validity + r_ordering + r_info_gain + r_efficiency + r_novelty + r_penalty
 ```
 
 | Component | What It Measures | Reward | Verification |
 |-----------|-----------------|--------|-------------|
-| `r_validity` | FDA rule compliance | +0.3 pass, −0.15/violation | Rule engine (binary) |
-| `r_ordering` | Correct phase workflow | +0.2 correct, −0.3×N skip | Phase detection |
-| `r_info_gain` | Information from experiments | +0.1 to +0.8 | Bayesian update quality |
-| `r_efficiency` | Budget/time efficiency | +0.1 to −0.2 | Math (cost / budget) |
+| `r_validity` | FDA rule compliance | +0.05 pass, −2.0 invalid | Rule engine (binary) |
+| `r_ordering` | Correct phase workflow | +0.1 correct, −0.3×N skip | Phase detection |
+| `r_info_gain` | Information from experiments + milestone bonuses | +0.1 to +1.5 | Power × base + first-time milestone |
+| `r_efficiency` | Budget efficiency (terminal only) | 0.0 to +0.3 | Math (remaining / initial budget) |
 | `r_novelty` | Trying new action types | +0.1 first use | Action history |
-| `r_penalty` | Soft violations (redundant, unjustified) | −0.1 to −0.15 each | Rule engine |
-| `r_shaping` | Progress toward milestones | γ·(φ(s') − φ(s)) | Potential function |
+| `r_penalty` | Compliance violations | −0.5 per violation | Rule engine |
 
-### Terminal Reward (7 components)
+### Terminal Reward (2 components)
 
-Fires once at `done=True` after trial simulation against hidden ground truth.
+Fires once when `trial_complete=True` after `run_primary_analysis`.
 
 | Component | Condition | Reward |
 |-----------|----------|--------|
-| `r_terminal_success` | Trial detects true effect (p < α) | +5.0 to +7.0 (efficiency-scaled) |
-| | Trial fails (p ≥ α) | −1.0 |
-| `r_terminal_calibration` | Correct responder + mechanism + effect estimate | +0.0 to +5.0 |
-| `r_terminal_power` | Power ≥ 0.90 / ≥ 0.80 / ≥ 0.60 / < 0.60 | +2.0 / +1.5 / 0.0 / −2.0 |
-| `r_terminal_fda` | All rules pass / ≥80% / <80% | +2.0 / +1.0 / −1.0 |
-| `r_terminal_budget` | Under budget / over | +1.0 / −0.5 |
-| `r_terminal_futility` | Smart early stop / stopped a winner | +1.0 / −1.5 |
-| `r_terminal_overconf` | High-confidence wrong claims | −0.5 each (max −2.5) |
+| `r_terminal_success` | Trial succeeds (p < α, no failure) | +4.0 |
+| | Trial completes but fails | −1.0 |
+| `r_terminal_calibration` | CI accuracy vs true effect size | 0.0 to +2.0 |
 
 ### Episode Total
 
@@ -228,12 +207,12 @@ $$R_{\text{episode}} = \sum_{t=1}^{T} r_{\text{step}_t} + r_{\text{terminal}}$$
 
 | Outcome | Typical Total |
 |---------|-------------|
-| Expert success (subgroup + FDA + efficient + calibrated) | +11 to +14 |
-| Good success (trial succeeds, partial calibration) | +6 to +10 |
-| Marginal failure (ran trial, p > 0.05) | −1 to +1 |
-| Timeout (≥ max steps without conclusion) | −2.0 flat |
+| Optimal design (high power + efficient + calibrated) | +10 to +15 |
+| Good design (trial succeeds, partial calibration) | +5 to +10 |
+| Failed trial (p ≥ 0.05 or budget/time exceeded) | −1 to +3 |
+| Parse failure / invalid sequence | −3 |
 
-This 17-point spread (+14 to −3) is what GRPO needs — clear separation between good and great episodes for stable policy gradients.
+This 18-point spread (+15 to −3) is what GRPO needs — clear separation between good and great designs for stable policy gradients.
 
 ---
 
@@ -286,9 +265,9 @@ Notebooks: `train_colab.ipynb`, `train_kaggle.ipynb`
 | Document | What It Covers |
 |----------|---------------|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System design, data models, deployment, training setup |
-| [Reward Spec](docs/reward_spec.md) | 15-component reward with formulas |
+| [Reward Spec](docs/reward_spec.md) | 8-component reward with formulas |
 | [Scenario Cards](docs/scenario_cards.md) | 4 scenarios with hidden ground truth |
-| [Phase Workflow](docs/phase_workflow.md) | 10-phase clinical workflow with scoring |
+| [Phase Workflow](docs/phase_workflow.md) | 7-phase clinical workflow with scoring |
 | [Curriculum Policy](docs/curriculum_policy.md) | 5-tier adaptive curriculum |
 | [Verification Spec](docs/verification_spec.md) | Multi-layer verification (math + rules + optional LLM) |
 | [Statistical Grounding](docs/grounding.md) | rpact validation, Berry 2010, Wassmer & Brannath 2016 |

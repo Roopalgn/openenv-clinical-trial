@@ -42,11 +42,12 @@ H100 (all-in-one)                              Trial Simulator
    → TrialLatentState created with hidden ground truth
    → Agent sees: scenario description + initial observation (no hidden values)
 
-2. Agent generates actions (55–100 steps):
-   Phase I:  run_dose_escalation → observe_safety_signal → estimate_effect_size
-   Phase II: set_primary_endpoint → set_sample_size → set_inclusion_criteria → ...
-   Regulatory: submit_to_fda_review
-   Analysis: run_primary_analysis → synthesize_conclusion
+2. Agent outputs design decisions (sample_size, add_biomarker):
+   Smart action sequence executes 9–10 prerequisite-correct steps:
+   set_primary_endpoint → set_sample_size → set_inclusion_criteria →
+   set_dosing_schedule → set_control_arm → enroll_patients(N) →
+   run_dose_escalation → [add_biomarker] → run_interim_analysis →
+   run_primary_analysis (triggers terminal rewards)
 
 3. Each action:
    → RuleEngine checks FDA constraints + prerequisites (hard block if violated)
@@ -54,15 +55,15 @@ H100 (all-in-one)                              Trial Simulator
    → OutputGenerator conditions on new hidden state, injects realistic noise via NoiseModel
    → Phase detector classifies into clinical workflow phase
    → Reward computer calculates 8 decomposed components
-   → Phase-order bonus/penalty applied (+0.2 correct / -0.3×skipped)
+   → Phase-order bonus/penalty applied (+0.1 correct / -0.3×skipped)
    → Step logged to episode_transcripts/*.jsonl (action, observation, reward, phase, hidden_state)
 
 4. Terminal (done=True):
    → Trial simulation runs against hidden ground truth
    → Programmatic verification: power, p-value, FDA compliance, budget
    → Terminal calibration: agent's conclusions vs hidden truth
-   → Terminal reward: +5 to +14 (success) or -2 to -3 (failure)
-   → Overconfidence penalty: -0.5 per high-confidence wrong claim
+   → Terminal reward: +4.0 (success) or -1.0 (failure)
+   → Terminal calibration: 0.0 to +2.0 (CI accuracy vs true effect)
    → Curriculum records outcome, adjusts difficulty for next episode
    → If at expert tier: AdversarialDesigner notes weak spots for next scenario
 
@@ -106,8 +107,8 @@ H100 (all-in-one)                              Trial Simulator
 - 8 decomposed components: validity, ordering, info_gain, efficiency, novelty, penalty, terminal_success, terminal_calibration
 - Each component independently verifiable and debuggable
 - Potential-based shaping: γ·(φ(s') − φ(s)) where φ = milestone_completion × budget_efficiency
-- Terminal calibration: agent's conclusions vs hidden ground truth (weight 4.0)
-- Overconfidence penalty: -0.5 per high-confidence wrong claim
+- Terminal success: +4.0 on success, -1.0 on failure
+- Terminal calibration: CI accuracy vs true effect size (0.0 to +2.0)
 
 ### Curriculum Controller (`server/curriculum/`)
 - 5 tiers: warmup → beginner → intermediate → advanced → expert
@@ -126,7 +127,7 @@ H100 (all-in-one)                              Trial Simulator
 ### Phase Detector (`server/phase_detector.py`)
 - Classifies each action into clinical workflow phase
 - Phases: literature_review → hypothesis → design → enrollment → monitoring → analysis → submission
-- Bonus (+0.2) for correct phase ordering, penalty (-0.3) per skipped phase
+- Bonus (+0.1) for correct phase ordering, penalty (-0.3) per skipped phase
 
 ### NoiseModel (`server/noise_model.py`)
 - Centralizes all stochasticity with seeded `numpy.Generator`
@@ -254,16 +255,14 @@ openenv-clinical-trial/
 ├── ARCHITECTURE.md               # This file
 ├── README.md                     # Project overview
 └── docs/
-    ├── problem_statement.md
     ├── reward_spec.md
     ├── scenario_cards.md
     ├── phase_workflow.md
     ├── curriculum_policy.md
     ├── adaptive_difficulty_spec.md
     ├── verification_spec.md
-      ├── grounding.md
-    ├── evaluation_criteria.md
-    ├── benchmark_protocol.md
+    ├── grounding.md
+    ├── onsite_roadmap.md
     └── mini_blog_draft.md
 ```
 
@@ -478,13 +477,13 @@ api.upload_folder(
 │  │     └── Agent sees ONLY this noisy output                                │
 │  │                                                                           │
 │  │  4. PhaseDetector.detect(action, history)                                 │
-│  │     └── Classifies into 10 workflow phases                               │
+│  │     └── Classifies into 7 workflow phases                                │
 │  │                                                                           │
 │  │  5. RewardComputer.compute(action, state, latent_state)                   │
 │  │     ├── 8 per-step components (validity, ordering, info_gain, ...)       │
 │  │     ├── Potential-based shaping: γ·(φ(s') − φ(s))                       │
 │  │     ├── Judge persona scaling (junior → principal)                       │
-│  │     └── If done: 7 terminal components (success, calibration, power, ...)│
+│  │     └── If done: 2 terminal components (success, calibration)            │
 │  │                                                                           │
 │  │  6. EpisodeLogger.log_step(...)                                           │
 │  │     ├── JSONL: action, observation, reward breakdown, phase, latent       │

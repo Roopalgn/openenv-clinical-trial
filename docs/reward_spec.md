@@ -4,71 +4,77 @@
 
 1. **Decomposed** — every component is independently verifiable and debuggable
 2. **Math-verified** — core success is determined by scipy.stats, not LLM
-3. **High variance** — GRPO needs clear separation between good (−3) and great (+14) episodes
-4. **Shaped** — potential-based shaping gives gradient without changing optimal policy
+3. **High variance** — GRPO needs clear separation between good (−3) and great (+15) episodes
+4. **Milestone-driven** — first-time milestone bonuses provide progressive learning signal
 5. **Phase-aware** — correct workflow ordering is rewarded
 
 ---
 
-## Per-Step Reward (8 components)
+## Per-Step Reward (6 components)
 
 ```
-r_step = r_validity + r_ordering + r_info_gain + r_efficiency + r_novelty + r_penalty + r_shaping
+r_step = r_validity + r_ordering + r_info_gain + r_efficiency + r_novelty + r_penalty
 ```
 
 | Component | What It Measures | Reward | Verification |
 |-----------|-----------------|--------|-------------|
-| `r_validity` | FDA rule compliance | +0.3 pass, −0.15/violation | Rule engine (binary) |
-| `r_ordering` | Correct phase workflow | +0.2 correct, −0.3×N skip | Phase detection heuristic |
-| `r_info_gain` | Information from experiments | +0.1 to +0.8 | Bayesian update quality |
-| `r_efficiency` | Budget/time efficiency | +0.1 to −0.2 | Math (cost / budget) |
+| `r_validity` | FDA rule compliance | +0.05 pass, −2.0 invalid | Rule engine (binary) |
+| `r_ordering` | Correct phase workflow | +0.1 correct, −0.3×N skip | Phase detection heuristic |
+| `r_info_gain` | Information gain + milestone bonuses | +0.1 to +1.5 | Power × base + first-time milestone |
+| `r_efficiency` | Budget efficiency (terminal only) | 0.0 to +0.3 | Math (remaining / initial budget) |
 | `r_novelty` | Trying new action types | +0.1 first use | Action history check |
-| `r_penalty` | Soft violations (redundant, unjustified) | −0.1 to −0.15 each | Rule engine |
-| `r_shaping` | Progress toward milestones | γ·(φ(s') − φ(s)) | Potential function |
+| `r_penalty` | Compliance violations | −0.5 per violation | Rule engine |
 
 **Info gain by action type:**
 
 | Action | Info Gain | Why |
 |--------|----------|-----|
-| `run_dose_escalation` | +0.1 to +0.5 | KL divergence on effect_size posterior |
-| `observe_safety_signal` | +0.05 to +0.3 | Entropy reduction on side_effect_rate |
-| `estimate_effect_size` | +0.2 to +0.6 | Posterior std reduction |
-| `add_biomarker_stratification` | +0.1 to +0.8 | Subgroup signal strength |
+| `estimate_effect_size` | base × max(power, 0.1) | Power proportional to sample quality |
+| `observe_safety_signal` | base × max(power, 0.1) | Safety data generation |
+| `run_interim_analysis` | base × max(power, 0.1) | Mid-trial statistical check |
+| `run_dose_escalation` | base × max(power, 0.1) | Dose-finding data |
+| `add_biomarker_stratification` | base × max(power, 0.1) | Subgroup signal |
 | Design actions (set_*) | 0.0 | Design doesn't generate data |
+
+**Milestone bonuses (fire once per episode, added to r_info_gain):**
+
+| Milestone | Bonus | Trigger |
+|-----------|-------|---------|
+| Phase I complete | +1.0 | First `run_dose_escalation` with phase_i_complete |
+| Effect estimated | +0.5 | First `estimate_effect_size` with effect_estimated |
+| Interim complete | +1.0 | First `run_interim_analysis` with interim_complete |
+| Protocol submitted | +0.5 | First `submit_to_fda_review` with protocol_submitted |
+| Trial complete | +1.5 | First `run_primary_analysis` with trial_complete |
+| Patients enrolled | +0.3 | First `enroll_patients` with patients > 0 |
 
 ---
 
-## Terminal Reward (7 components)
+## Terminal Reward (2 components)
 
-Fires once at `done=True` after trial simulation.
+Fires when `trial_complete=True` after `run_primary_analysis`.
 
 | Component | Condition | Reward |
 |-----------|----------|--------|
-| `r_terminal_success` | Trial detects true effect (p < α) | +5.0 to +7.0 (efficiency-scaled) |
-| | Trial fails (p ≥ α) | −1.0 |
-| `r_terminal_calibration` | Correct responder population + mechanism + effect estimate | +0.0 to +5.0 |
-| `r_terminal_power` | Power ≥ 0.90 / ≥ 0.80 / ≥ 0.60 / < 0.60 | +2.0 / +1.5 / 0.0 / −2.0 |
-| `r_terminal_fda` | All rules pass / ≥80% / <80% | +2.0 / +1.0 / −1.0 |
-| `r_terminal_budget` | Under budget / over | +1.0 / −0.5 |
-| `r_terminal_futility` | Smart early stop / stopped a winner | +1.0 / −1.5 |
-| `r_terminal_overconf` | High-confidence wrong claims | −0.5 each (max −2.5) |
+| `r_terminal_success` | Trial succeeds (p < α, no failure) | +4.0 |
+| | Trial completes but fails | −1.0 |
+| `r_terminal_calibration` | CI accuracy vs true effect size | 0.0 to +2.0 |
 
-**Timeout:** If steps ≥ max_steps without conclusion → wipe step rewards, set R_episode = −2.0.
+**Timeout:** If steps ≥ max_steps without completion → −2.0 flat penalty.
 
 ---
 
 ## Total Episode Reward
 
-$$R_{\text{episode}} = \sum_{t=1}^{T} r_{\text{step}_t} + r_{\text{terminal}}$$
+$$R_{\text{episode}} = \sum_{t=1}^{T} r_{\text{step}_t}$$
+
+(Terminal components are included in the step where trial_complete triggers.)
 
 | Outcome | Typical Total | Range |
 |---------|-------------|-------|
-| Expert success (subgroup + FDA + efficient + calibrated) | +11 to +14 | Best |
-| Good success (trial succeeds, partial calibration) | +6 to +10 | Common |
-| Marginal success (p < 0.05 barely, wrong subgroup) | +2 to +5 | Partial |
-| Marginal failure (ran trial, p > 0.05) | −1 to +1 | Near miss |
-| Clear failure (wrong design, FDA rejection) | −2 to 0 | Bad |
-| Timeout | −2.0 flat | Worst |
+| Optimal design (high power + efficient + calibrated) | +10 to +15 | Best |
+| Good design (trial succeeds, partial calibration) | +5 to +10 | Common |
+| Failed trial (p ≥ 0.05 or budget/time exceeded) | −1 to +3 | Near miss |
+| Parse failure / invalid sequence | −3 | Worst |
 
 ---
 
@@ -76,4 +82,4 @@ $$R_{\text{episode}} = \sum_{t=1}^{T} r_{\text{step}_t} + r_{\text{terminal}}$$
 
 $$R_{\text{shaped}} = R_{\text{original}} + \gamma \cdot (\varphi(s') - \varphi(s))$$
 
-Where $\varphi(s)$ = milestone_completion_fraction × budget_efficiency, $\gamma$ = 0.99. Terms telescope over a full episode — optimal policy unchanged, learning speed improved.
+Where $\varphi(s)$ = milestone_completion_fraction × budget_efficiency, $\gamma$ = 0.99. Terms telescope over a full episode — optimal policy unchanged, learning speed improved. Shaping bonus is folded into `r_info_gain`.
