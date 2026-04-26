@@ -62,6 +62,8 @@ _manager = EpisodeManager()
 
 class ResetRequest(BaseModel):
     seed: int | None = None
+    curriculum_tier: int | None = None
+    freeze_curriculum: bool = False
 
 
 class StepResponse(BaseModel):
@@ -95,7 +97,11 @@ def ping() -> dict[str, str]:
 @app.post("/reset", response_model=TrialObservation)
 def reset(body: ResetRequest = ResetRequest()) -> TrialObservation:
     """Initialize a new episode and return the initial observation."""
-    return _manager.reset(seed=body.seed)
+    return _manager.reset(
+        seed=body.seed,
+        curriculum_tier_override=body.curriculum_tier,
+        freeze_curriculum=body.freeze_curriculum,
+    )
 
 
 @app.post("/step", response_model=StepResponse)

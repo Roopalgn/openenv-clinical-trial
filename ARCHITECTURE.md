@@ -251,7 +251,7 @@ openenv-clinical-trial/
 ├── train_colab.ipynb             # Google Colab training notebook
 ├── train_kaggle.ipynb            # Kaggle T4/P100 training notebook
 ├── Dockerfile                    # HF Spaces deployment (openenv-base image)
-├── openenv.yaml                  # OpenEnv v0.2.1 Space config
+├── openenv.yaml                  # OpenEnv v0.2.3 Space config
 ├── ARCHITECTURE.md               # This file
 ├── README.md                     # Project overview
 └── docs/

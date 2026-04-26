@@ -5,7 +5,7 @@ Clinical workflow phase order:
   literature_review → hypothesis → design → enrollment →
   monitoring → analysis → submission
 
-Phase-order bonus: +0.2 for correct order (no regression, no skips)
+Phase-order bonus: +0.1 for correct order (no regression, no skips)
 Skip penalty: -0.3 per skipped phase
 
 Requirements: 8.5, 9.4
@@ -31,13 +31,14 @@ PHASE_BONUS: float = 0.1
 PHASE_SKIP_PENALTY: float = -0.3
 
 # Mapping from ActionType to phase name.
+# Kept aligned with TransitionEngine so ordering rewards match the
+# episode-phase progression used by rule checks.
 # literature_review has no direct action — used as default for unknown.
 _ACTION_TO_PHASE: dict[ActionType, str] = {
     # hypothesis
+    ActionType.SET_PRIMARY_ENDPOINT: "hypothesis",
     ActionType.ESTIMATE_EFFECT_SIZE: "hypothesis",
-    ActionType.ADD_BIOMARKER_STRATIFICATION: "hypothesis",
     # design
-    ActionType.SET_PRIMARY_ENDPOINT: "design",
     ActionType.SET_SAMPLE_SIZE: "design",
     ActionType.SET_INCLUSION_CRITERIA: "design",
     ActionType.SET_EXCLUSION_CRITERIA: "design",
@@ -45,14 +46,15 @@ _ACTION_TO_PHASE: dict[ActionType, str] = {
     ActionType.SET_CONTROL_ARM: "design",
     ActionType.SET_RANDOMIZATION_RATIO: "design",
     ActionType.SET_BLINDING: "design",
+    ActionType.ADD_BIOMARKER_STRATIFICATION: "design",
     ActionType.REQUEST_PROTOCOL_AMENDMENT: "design",
     # enrollment
     ActionType.ENROLL_PATIENTS: "enrollment",
+    ActionType.RUN_DOSE_ESCALATION: "enrollment",
+    ActionType.OBSERVE_SAFETY_SIGNAL: "enrollment",
+    ActionType.MODIFY_SAMPLE_SIZE: "enrollment",
     # monitoring
-    ActionType.RUN_DOSE_ESCALATION: "monitoring",
-    ActionType.OBSERVE_SAFETY_SIGNAL: "monitoring",
     ActionType.RUN_INTERIM_ANALYSIS: "monitoring",
-    ActionType.MODIFY_SAMPLE_SIZE: "monitoring",
     # analysis
     ActionType.RUN_PRIMARY_ANALYSIS: "analysis",
     ActionType.SYNTHESIZE_CONCLUSION: "analysis",

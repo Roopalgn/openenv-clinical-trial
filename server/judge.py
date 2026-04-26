@@ -30,7 +30,7 @@ import math
 from pydantic import BaseModel
 from scipy.stats import norm
 
-from models import TrialAction, TrialLatentState, TrialState
+from models import ActionType, TrialAction, TrialLatentState, TrialState
 from server.rules.fda_rules import check_fda_compliance
 from server.simulator.power_calculator import calculate_power
 
@@ -61,6 +61,11 @@ _JUNIOR_MAX = 0.4
 _SENIOR_MAX = 0.7
 _HIGH_CONFIDENCE_THRESHOLD = 0.8
 _OVERCONFIDENCE_PENALTY = -0.5
+_TERMINAL_CHECK_ACTIONS: set[ActionType] = {
+    ActionType.RUN_PRIMARY_ANALYSIS,
+    ActionType.SYNTHESIZE_CONCLUSION,
+    ActionType.SUBMIT_TO_FDA_REVIEW,
+}
 
 
 def _select_persona(difficulty: float) -> str:
@@ -347,29 +352,36 @@ class TrialJudge:
                 f"(must be > 0)."
             )
 
-        # 1b. Statistical power check
+        # 1b/1c. Statistical power + p-value checks.
+        # Gate these checks to terminal/near-terminal actions to avoid
+        # penalizing incomplete early-episode states where enrollment and
+        # analyses have not happened yet.
+        should_check_stats = (
+            latent.trial_complete
+            or action.action_type in _TERMINAL_CHECK_ACTIONS
+        )
         n = max(latent.patients_enrolled, 1)
-        power = calculate_power(latent.true_effect_size, n)
-        if power < 0.80:
-            violations.append(
-                f"Insufficient statistical power: {power:.3f} < 0.80 "
-                f"(effect_size={latent.true_effect_size:.3f}, n={n})."
-            )
+        if should_check_stats:
+            power = calculate_power(latent.true_effect_size, n)
+            if power < 0.80:
+                violations.append(
+                    f"Insufficient statistical power: {power:.3f} < 0.80 "
+                    f"(effect_size={latent.true_effect_size:.3f}, n={n})."
+                )
 
-        # 1c. p-value check
-        if n > 0 and latent.true_effect_size != 0.0:
-            n_per_arm = n / 2.0
-            se = 1.0 / math.sqrt(n_per_arm) if n_per_arm > 0 else 1.0
-            z_stat = latent.true_effect_size / se
-            p_value = float(2.0 * norm.sf(abs(z_stat)))
-        else:
-            p_value = 1.0
+            if n > 0 and latent.true_effect_size != 0.0:
+                n_per_arm = n / 2.0
+                se = 1.0 / math.sqrt(n_per_arm) if n_per_arm > 0 else 1.0
+                z_stat = latent.true_effect_size / se
+                p_value = float(2.0 * norm.sf(abs(z_stat)))
+            else:
+                p_value = 1.0
 
-        if p_value >= 0.05:
-            violations.append(
-                f"p-value not significant: {p_value:.4f} >= 0.05 "
-                f"(n={n}, effect_size={latent.true_effect_size:.3f})."
-            )
+            if p_value >= 0.05:
+                violations.append(
+                    f"p-value not significant: {p_value:.4f} >= 0.05 "
+                    f"(n={n}, effect_size={latent.true_effect_size:.3f})."
+                )
 
         # 1d. FDA compliance check
         compliance = check_fda_compliance(action, latent)
