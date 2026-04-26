@@ -285,3 +285,9 @@
 - AyushbhaiPatel/openenv-boardroom
 - vsrupeshkumar/Adaptive-crisis-openenv
 - roonakyadav/openenv
+
+
+
+#IMPORTANT NOTE
+
+Make sure not to make any changes to `train_colab_v2.py` and other colab related files like `plot_rewards.py`
