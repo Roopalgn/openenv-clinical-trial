@@ -54,6 +54,16 @@ REQUIRED_ACTION_ORDER: tuple[str, ...] = (
     "run_interim_analysis",
     "run_primary_analysis",
 )
+REWARD_COMPONENT_KEYS: tuple[str, ...] = (
+    "r_validity",
+    "r_ordering",
+    "r_info_gain",
+    "r_efficiency",
+    "r_novelty",
+    "r_penalty",
+    "r_terminal_success",
+    "r_terminal_calibration",
+)
 
 # ---------------------------------------------------------------------------
 # Lazy imports — TRL / vLLM are optional at import time so the module can be
@@ -267,6 +277,13 @@ def plan_progress_bonus(actions: list["TrialAction"]) -> float:
     return MAX_INCOMPLETE_PROGRESS_BONUS * progress
 
 
+def _reward_total(reward_data: Any) -> float:
+    """Aggregate only the canonical reward components from step_full()."""
+    if isinstance(reward_data, dict):
+        return float(sum(float(reward_data[key]) for key in REWARD_COMPONENT_KEYS))
+    return float(reward_data)
+
+
 def _observation_to_plan_prompt(obs: Any) -> str:
     """Build the full-episode planning prompt used by GRPO."""
     return (
@@ -310,11 +327,7 @@ def rollout_action_plan_reward(
             _obs, reward_dict, done, info = env.step_full(action)
             if not info.get("action_valid", True):
                 return INVALID_SEQUENCE_REWARD
-            total += (
-                sum(reward_dict.values())
-                if isinstance(reward_dict, dict)
-                else float(reward_dict)
-            )
+            total += _reward_total(reward_dict)
             if done:
                 return total
 
@@ -391,11 +404,7 @@ def rollout_func(
         action = _build_action_from_text(response_text, step_idx, available)
         next_obs, reward_dict, done, info = env.step_full(action)
 
-        total_reward = (
-            sum(reward_dict.values())
-            if isinstance(reward_dict, dict)
-            else float(reward_dict)
-        )
+        total_reward = _reward_total(reward_dict)
 
         experiences.append(
             {
@@ -591,11 +600,7 @@ def _dry_run(args: argparse.Namespace) -> None:
             available = obs.available_actions
             action = _build_action_from_text("", step_idx, available)  # uses available actions
             next_obs, reward_dict, done, _ = env.step_full(action)
-            total_reward += (
-                sum(reward_dict.values())
-                if isinstance(reward_dict, dict)
-                else float(reward_dict)
-            )
+            total_reward += _reward_total(reward_dict)
             steps += 1
             obs = next_obs
             if done:

@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from models import ActionType, TrialAction
+from models import ActionType, RewardBreakdown, TrialAction
+import server.episode_manager as episode_manager_module
 from server.episode_manager import EpisodeManager
 from server.simulator.power_calculator import calculate_power
 
@@ -221,24 +222,73 @@ class TestInvalidStepCounting:
 
 
 class TestTimeoutPenalty:
-    """M13: timed-out episodes get flat penalty reward."""
+    """Timeout should preserve progress while adding a terminal penalty."""
 
-    def test_timeout_gives_penalty_reward(self) -> None:
+    def test_timeout_preserves_earned_reward_components(self, monkeypatch) -> None:
         em = EpisodeManager()
         em.reset(seed=42)
-        # Use a valid repeating action so steps advance normally
+        em._step_count = 99
+
+        base_reward = RewardBreakdown(
+            r_validity=0.4,
+            r_ordering=0.3,
+            r_info_gain=1.2,
+            r_efficiency=0.0,
+            r_novelty=0.1,
+            r_penalty=-0.2,
+            r_terminal_success=0.0,
+            r_terminal_calibration=0.0,
+        )
+
+        monkeypatch.setattr(
+            episode_manager_module, "compute_reward", lambda **_: base_reward
+        )
+        monkeypatch.setattr(episode_manager_module, "shaping_bonus", lambda **_: 0.0)
+
         action = _make_action(ActionType.SET_PRIMARY_ENDPOINT, endpoint="os")
-        last_reward = None
-        for _ in range(100):
-            _, reward, done, _ = em.step(action)
-            last_reward = reward
-            if done:
-                break
+        _, reward, done, _ = em.step(action)
+
         assert done, "Episode did not reach done"
-        # Timeout (not trial_complete) should give penalty
-        assert last_reward is not None
-        assert last_reward.r_validity == -0.5
-        assert last_reward.r_penalty == -1.5
+        assert reward.r_validity == base_reward.r_validity - 0.5
+        assert reward.r_penalty == base_reward.r_penalty - 1.5
+        assert reward.r_ordering == base_reward.r_ordering
+        assert reward.r_info_gain == base_reward.r_info_gain
+        assert reward.r_novelty == base_reward.r_novelty
+
+
+class TestInternalStepErrors:
+    """Recoverable value errors should return a penalty; programming bugs should raise."""
+
+    def test_value_error_returns_internal_penalty(self, monkeypatch) -> None:
+        em = EpisodeManager()
+        em.reset(seed=42)
+
+        def _raise_value_error(*_args, **_kwargs):
+            raise ValueError("bad transition")
+
+        monkeypatch.setattr(em._transition_engine, "apply_transition", _raise_value_error)
+
+        obs, reward, done, info = em.step(_make_action(ActionType.SET_PRIMARY_ENDPOINT))
+
+        assert done is False
+        assert reward.r_validity == -1.0
+        assert info["action_valid"] is False
+        assert any("bad transition" in violation for violation in info["violations"])
+        assert any("bad transition" in violation for violation in obs.rule_violations)
+
+    def test_attribute_error_propagates(self, monkeypatch) -> None:
+        em = EpisodeManager()
+        em.reset(seed=42)
+
+        def _raise_attribute_error(*_args, **_kwargs):
+            raise AttributeError("missing field")
+
+        monkeypatch.setattr(
+            em._transition_engine, "apply_transition", _raise_attribute_error
+        )
+
+        with pytest.raises(AttributeError, match="missing field"):
+            em.step(_make_action(ActionType.SET_PRIMARY_ENDPOINT))
 
 
 class TestRoundTripProperty:

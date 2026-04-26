@@ -21,7 +21,7 @@ from models import (
     TrialResult,
 )
 from server.phase_detector import compute_phase_ordering_reward
-from server.rules.fda_rules import check_fda_compliance
+from server.rules.fda_rules import ComplianceResult, check_fda_compliance
 
 # Reward magnitude constants — V3
 # Tuned for GRPO: minimise free per-step floor so within-group variance is high.
@@ -42,6 +42,7 @@ def compute_reward(
     result: TrialResult,
     phase_history: list[str] | None = None,
     initial_budget: float = 1_000_000.0,
+    compliance: ComplianceResult | None = None,
 ) -> RewardBreakdown:
     """Compute all eight reward components for a single step.
 
@@ -56,11 +57,13 @@ def compute_reward(
         initial_budget: The scenario's starting budget (used for efficiency reward).
             Defaults to 1_000_000 for backwards compatibility but should be set
             to the scenario's actual budget_usd.
+        compliance: Optional precomputed FDA compliance result for this action.
 
     Returns:
         A RewardBreakdown with all eight keys populated.
     """
-    compliance = check_fda_compliance(action, latent)
+    if compliance is None:
+        compliance = check_fda_compliance(action, latent)
 
     r_validity = _VALIDITY_VALID if compliance.valid else _VALIDITY_INVALID
     r_penalty = (

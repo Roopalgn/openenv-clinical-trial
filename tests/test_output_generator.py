@@ -349,6 +349,15 @@ class TestAvailableActions:
         obs = _make_obs(generator, latent, trial_state)
         assert ActionType.SET_DOSING_SCHEDULE.value in obs.available_actions
 
+    def test_estimate_effect_size_available_in_literature_review(
+        self, generator, base_latent, trial_state
+    ):
+        latent = base_latent.model_copy(
+            update={"episode_phase": "literature_review", "action_history": []}
+        )
+        obs = _make_obs(generator, latent, trial_state)
+        assert ActionType.ESTIMATE_EFFECT_SIZE.value in obs.available_actions
+
     def test_synthesize_conclusion_requires_trial_complete(
         self, generator, base_latent, trial_state
     ):

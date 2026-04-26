@@ -8,6 +8,7 @@ training loop. TrialObservation is the noisy agent-facing view.
 
 from __future__ import annotations
 
+import logging
 import random
 import uuid
 from datetime import datetime, timezone
@@ -46,6 +47,7 @@ from server.simulator.transition_engine import TransitionEngine
 from server.simulator.trial_simulator import simulate_trial
 
 _MAX_STEPS = 100
+logger = logging.getLogger(__name__)
 
 
 def _latent_biology_from_scenario(scenario: ScenarioConfig) -> dict:
@@ -409,6 +411,7 @@ class EpisodeManager:
                 result=result,
                 phase_history=self._phase_history[:-1],  # history before this step
                 initial_budget=self._initial_budget,
+                compliance=compliance,
             )
 
             # Add potential-based shaping bonus: γ·(φ(s') − φ(s))
@@ -424,7 +427,13 @@ class EpisodeManager:
 
             # Step 6: TrialJudge verification (hint + overconfidence penalty)
             self._state = self._state_from_latent(self._latent, self._scenario)
-            judge_result = self._judge.verify(action, self._state, self._latent)
+            judge_result = self._judge.verify(
+                action,
+                self._state,
+                self._latent,
+                result=result,
+                compliance=compliance,
+            )
             hint = judge_result.hint or ""
 
             # Apply overconfidence penalty to r_penalty
@@ -443,17 +452,13 @@ class EpisodeManager:
             if done:
                 self._episode_done = True
 
-            # M13: Timeout penalty — if episode timed out without completing trial
+            # Preserve earned progress on timeout; only add the terminal timeout cost.
             if done and not self._latent.trial_complete:
-                reward = RewardBreakdown(
-                    r_validity=-0.5,
-                    r_ordering=0.0,
-                    r_info_gain=0.0,
-                    r_efficiency=0.0,
-                    r_novelty=0.0,
-                    r_penalty=-1.5,
-                    r_terminal_success=0.0,
-                    r_terminal_calibration=0.0,
+                reward = reward.model_copy(
+                    update={
+                        "r_validity": reward.r_validity - 0.5,
+                        "r_penalty": reward.r_penalty - 1.5,
+                    }
                 )
 
             # Step 8: Generate noisy observation via OutputGenerator
@@ -548,7 +553,8 @@ class EpisodeManager:
 
         except RuntimeError:
             raise
-        except Exception as exc:  # Req 10.4: no unhandled exceptions
+        except ValueError as exc:
+            logger.warning("Recoverable step error: %s", exc)
             reward = RewardBreakdown(
                 r_validity=-1.0,
                 r_ordering=0.0,
@@ -614,6 +620,9 @@ class EpisodeManager:
                 )
             )
             return obs, reward, done, info
+        except Exception:
+            logger.exception("Unexpected error while processing episode step")
+            raise
 
     def get_state(self) -> TrialState:
         """Return the current TrialState (training-loop metadata)."""

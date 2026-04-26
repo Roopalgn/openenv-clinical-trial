@@ -418,6 +418,24 @@ class TestFDAComplianceInvalidActions:
             f"expected empty list for valid action, got {result.violations}"
         )
 
+    def test_estimate_effect_size_valid_in_literature_review(self):
+        """ESTIMATE_EFFECT_SIZE is allowed early without dose-escalation history."""
+        latent = self._make_base_latent(
+            episode_phase="literature_review",
+            action_history=[],
+        )
+        action = _make_action(ActionType.ESTIMATE_EFFECT_SIZE)
+        result = check_fda_compliance(action, latent)
+        assert result.valid is True, (
+            f"seed={FIXED_SEED} | step=0 | field=valid | "
+            "expected ESTIMATE_EFFECT_SIZE to be valid in literature_review, "
+            f"got False with violations: {result.violations}"
+        )
+        assert result.violations == [], (
+            f"seed={FIXED_SEED} | step=0 | field=violations | "
+            f"expected no prerequisite violation, got {result.violations}"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Requirement 16.4 — compute_reward returns expected RewardBreakdown

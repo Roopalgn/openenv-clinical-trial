@@ -32,6 +32,16 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 log = logging.getLogger("eval_compare")
+REWARD_COMPONENT_KEYS: tuple[str, ...] = (
+    "r_validity",
+    "r_ordering",
+    "r_info_gain",
+    "r_efficiency",
+    "r_novelty",
+    "r_penalty",
+    "r_terminal_success",
+    "r_terminal_calibration",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -52,6 +62,13 @@ def _import_ml_stack():
             exc,
         )
         sys.exit(1)
+
+
+def _reward_total(reward_data: Any) -> float:
+    """Aggregate only the canonical reward components from step_full()."""
+    if isinstance(reward_data, dict):
+        return float(sum(float(reward_data[key]) for key in REWARD_COMPONENT_KEYS))
+    return float(reward_data)
 
 
 # ---------------------------------------------------------------------------
@@ -212,11 +229,7 @@ def run_episode(
         action = policy.select_action(obs, step_idx)
         obs, reward_dict, done, info = env.step_full(action)
 
-        step_reward = (
-            sum(reward_dict.values())
-            if isinstance(reward_dict, dict)
-            else float(reward_dict)
-        )
+        step_reward = _reward_total(reward_dict)
         total_reward += step_reward
         steps += 1
 

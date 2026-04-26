@@ -25,14 +25,12 @@ Environment variables:
 from __future__ import annotations
 
 import logging
-import math
 
 from pydantic import BaseModel
-from scipy.stats import norm
 
-from models import ActionType, TrialAction, TrialLatentState, TrialState
-from server.rules.fda_rules import check_fda_compliance
-from server.simulator.power_calculator import calculate_power
+from models import ActionType, TrialAction, TrialLatentState, TrialResult, TrialState
+from server.rules.fda_rules import ComplianceResult, check_fda_compliance
+from server.simulator.trial_simulator import simulate_trial
 
 logger = logging.getLogger(__name__)
 
@@ -127,10 +125,10 @@ def _call_llm(
     model: str,
     api_key: str,
     base_url: str | None,
-) -> tuple[str, str | None]:
+) -> tuple[str, str | None, bool]:
     """Call the LLM for Layer 2 qualitative assessment.
 
-    Returns (feedback, hint). Falls back to stub on any error.
+    Returns (feedback, hint, used_real_llm). Falls back to stub on any error.
     """
     import json
 
@@ -141,7 +139,8 @@ def _call_llm(
             "openai package not installed — falling back to rule-based judge stub. "
             "Install with: pip install openai"
         )
-        return _stub_feedback(persona, violations, passed, action, latent)
+        feedback, hint = _stub_feedback(persona, violations, passed, action, latent)
+        return feedback, hint, False
 
     user_msg = _LLM_USER_TEMPLATE.format(
         action_type=action.action_type.value,
@@ -187,7 +186,7 @@ def _call_llm(
         )
         hint_raw = data.get("hint")
         hint = str(hint_raw).strip() if hint_raw and persona == "junior" else None
-        return feedback, hint
+        return feedback, hint, True
 
     except Exception as exc:  # noqa: BLE001
         logger.warning(
@@ -195,7 +194,8 @@ def _call_llm(
             type(exc).__name__,
             exc,
         )
-        return _stub_feedback(persona, violations, passed, action, latent)
+        feedback, hint = _stub_feedback(persona, violations, passed, action, latent)
+        return feedback, hint, False
 
 
 # ---------------------------------------------------------------------------
@@ -327,6 +327,8 @@ class TrialJudge:
         action: TrialAction,
         state: TrialState,
         latent: TrialLatentState,
+        result: TrialResult | None = None,
+        compliance: ComplianceResult | None = None,
     ) -> JudgeResult:
         """Verify the action against both programmatic and persona layers.
 
@@ -334,6 +336,8 @@ class TrialJudge:
             action:  The agent's action to evaluate.
             state:   Lightweight training-loop metadata (carries difficulty).
             latent:  Hidden ground-truth + episode tracking state.
+            result:  Optional precomputed trial result for this step.
+            compliance: Optional precomputed FDA compliance result for this step.
 
         Returns:
             JudgeResult with pass/fail, violations, feedback, hint, penalty,
@@ -360,23 +364,17 @@ class TrialJudge:
             latent.trial_complete
             or action.action_type in _TERMINAL_CHECK_ACTIONS
         )
-        n = max(latent.patients_enrolled, 1)
         if should_check_stats:
-            power = calculate_power(latent.true_effect_size, n)
+            trial_result = result or simulate_trial(latent, action)
+            n = max(latent.patients_enrolled, 1)
+            power = trial_result.power
             if power < 0.80:
                 violations.append(
                     f"Insufficient statistical power: {power:.3f} < 0.80 "
                     f"(effect_size={latent.true_effect_size:.3f}, n={n})."
                 )
 
-            if n > 0 and latent.true_effect_size != 0.0:
-                n_per_arm = n / 2.0
-                se = 1.0 / math.sqrt(n_per_arm) if n_per_arm > 0 else 1.0
-                z_stat = latent.true_effect_size / se
-                p_value = float(2.0 * norm.sf(abs(z_stat)))
-            else:
-                p_value = 1.0
-
+            p_value = trial_result.p_value
             if p_value >= 0.05:
                 violations.append(
                     f"p-value not significant: {p_value:.4f} >= 0.05 "
@@ -384,7 +382,8 @@ class TrialJudge:
                 )
 
         # 1d. FDA compliance check
-        compliance = check_fda_compliance(action, latent)
+        if compliance is None:
+            compliance = check_fda_compliance(action, latent)
         if not compliance.valid:
             violations.extend(compliance.violations)
 
@@ -413,7 +412,7 @@ class TrialJudge:
         from server.config import settings  # local import avoids circular dep
 
         if settings.judge_llm_model and settings.judge_llm_api_key:
-            feedback, hint = _call_llm(
+            feedback, hint, llm_used = _call_llm(
                 persona=persona,
                 action=action,
                 latent=latent,
@@ -423,10 +422,6 @@ class TrialJudge:
                 api_key=settings.judge_llm_api_key,
                 base_url=settings.judge_llm_base_url,
             )
-            # Only mark llm_used=True if we didn't fall back (no exception path
-            # sets feedback to stub output — we can't distinguish, so we trust
-            # that _call_llm returns stub on error and logs a warning).
-            llm_used = True
         else:
             feedback, hint = _stub_feedback(persona, violations, passed, action, latent)
 

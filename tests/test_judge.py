@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from models import ActionType, TrialAction, TrialLatentState, TrialState
+from models import ActionType, TrialAction, TrialLatentState, TrialResult, TrialState
 from server.judge import JudgeResult, TrialJudge, _select_persona
 
 # ---------------------------------------------------------------------------
@@ -399,6 +399,31 @@ def test_llm_fallback_to_stub_on_import_error():
         result = judge.verify(_make_action(), _make_state(), latent)
         assert isinstance(result, JudgeResult)
         assert result.feedback  # stub still produces feedback
+        assert result.llm_used is False
+
+
+def test_verify_uses_supplied_trial_result_for_stat_checks():
+    """When a TrialResult is supplied, judge stats should come from that result."""
+    judge = TrialJudge()
+    latent = _make_latent(
+        true_effect_size=0.01,
+        patients_enrolled=20,
+        trial_complete=True,
+    )
+    action = _make_action()
+    supplied_result = TrialResult(
+        p_value=0.01,
+        success=True,
+        power=0.92,
+        adverse_event_rate=0.1,
+        confidence_interval=(0.0, 0.2),
+        failure_reason=None,
+    )
+
+    result = judge.verify(action, _make_state(), latent, result=supplied_result)
+
+    assert not any("power" in violation.lower() for violation in result.violations)
+    assert not any("p-value" in violation.lower() for violation in result.violations)
 
 
 # ---------------------------------------------------------------------------
