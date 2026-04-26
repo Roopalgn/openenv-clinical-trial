@@ -133,7 +133,60 @@ Avg reward delta (good − minimal): 14.59
 
 ---
 
-## 📁 Repository Structure
+## 🔁 Training Run History (3 Runs)
+
+### Run 0 — Collapsed (Before Fixes)
+The original training with single-step evaluation. All steps flat at exactly −3.0.
+
+```
+Step 2:  reward=-3.000  reward_std=0.000  ← complete collapse
+Step 4:  reward=-3.000  reward_std=0.000  ← no gradient
+Step 6:  reward=-3.000  reward_std=0.000  ← GRPO learning nothing
+```
+This taught us the single-step evaluation was the root cause.
+
+### Run 1 — Working (train_colab_v2.py, full-episode eval)
+After fixing evaluation mode, completion length, and reward magnitudes:
+```
+Mean reward: +7.58  |  Slope: +0.055/step  |  Collapsed steps: 0/30
+Rolling avg: 7.26 → 7.37 → 8.11
+```
+
+### Run 2 — Notebook Run (train_colab.ipynb, lora_dropout=0)
+Cleaner run with full Unsloth patching enabled (dropout=0):
+```
+Step 1: +8.45  Step 2: +11.36  Step 3: +10.16  Step 4: +8.26
+Rolling avg steps 1-4: +9.56  (higher and more stable than Run 1)
+Completion length: ~460 tokens (more efficient plans than Run 1's ~560)
+```
+
+Each run taught us something. Run 0 identified the evaluation bug. Run 1 proved the fix. Run 2 showed dropout=0 produces more efficient, stable outputs.
+
+---
+
+## 🛡️ Anti-Gaming Safeguards
+
+Clinical trial RL has several natural exploit paths. We closed them explicitly:
+
+| Exploit | Safeguard |
+|---|---|
+| Skip Phase I, run primary analysis immediately | Phase ordering reward: −0.3 per out-of-order action |
+| 10 violations then clean last step → terminal bonus | Episode-wide violation penalty: −0.3 × cumulative_violations at terminal |
+| Tiny n=5 trial gets lucky p < 0.05 | Power-gating: terminal success requires ≥40% statistical power |
+| Claim large effect to boost CI calibration score | Calibration reward = 1 − \|estimated − true\| (penalises overconfidence) |
+| Repeat same action for novelty-free padding | Novelty reward: +0.1 only for *first* use of each action type |
+
+## ⚠️ Known Limitations
+
+- **Single model size**: Only tested Qwen2.5-1.5B; larger models may show steeper slopes
+- **30-step training**: Full convergence likely requires 100+ steps; this is a proof-of-concept
+- **No held-out evaluation**: All metrics are from training seeds; OOD performance untested
+- **Simulator fidelity**: Dose-response curve is simplified; real Phase I dynamics are more complex
+- **Single-agent**: No multi-agent dynamics (no sponsor/regulator/investigator role separation)
+
+---
+
+
 
 ```
 ├── server/
