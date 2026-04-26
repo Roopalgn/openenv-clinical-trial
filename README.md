@@ -73,6 +73,12 @@ Eight decomposed reward components span **−3 (parse failure) to +16 (optimal t
 
 ![Reward Plot](docs/reward_plot.png)
 
+### Loss Curve
+
+![Loss Plot](docs/loss_plot.png)
+
+*GRPO policy loss oscillates near 0 — normal behaviour; the learning signal comes from reward variance between completions, not from loss magnitude.*
+
 ### Before vs After (The Fix)
 
 The training was initially **flat at −3.0** for all 30 steps. Here's what was wrong and how we fixed it:
