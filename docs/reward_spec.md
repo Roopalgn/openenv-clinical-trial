@@ -59,7 +59,7 @@ Fires when `trial_complete=True` after `run_primary_analysis`.
 | | Trial completes but fails | −1.0 |
 | `r_terminal_calibration` | CI accuracy vs true effect size | 0.0 to +2.0 |
 
-**Timeout:** If steps ≥ max_steps without completion → −2.0 flat penalty.
+**Timeout:** If steps ≥ max_steps without completion, earned components are preserved and an additional timeout penalty is applied (`r_validity -= 0.5`, `r_penalty -= 1.5`).
 
 ---
 

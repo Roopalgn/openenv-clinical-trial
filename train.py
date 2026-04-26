@@ -17,6 +17,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import ast
 import csv
 import json
 import logging
@@ -54,6 +55,7 @@ REQUIRED_ACTION_ORDER: tuple[str, ...] = (
     "run_interim_analysis",
     "run_primary_analysis",
 )
+DEFAULT_SAMPLE_SIZE = 240
 REWARD_COMPONENT_KEYS: tuple[str, ...] = (
     "r_validity",
     "r_ordering",
@@ -171,10 +173,16 @@ def _extract_json_payload(text: str) -> Any | None:
             spans.append((list_start, list_end + 1))
 
         for start, end in sorted(spans, key=lambda span: span[0]):
+            snippet = candidate[start:end]
             try:
-                return json.loads(candidate[start:end])
+                return json.loads(snippet)
             except json.JSONDecodeError:
-                continue
+                try:
+                    parsed = ast.literal_eval(snippet)
+                    if isinstance(parsed, (dict, list)):
+                        return parsed
+                except (ValueError, SyntaxError):
+                    pass
     return None
 
 
@@ -192,6 +200,41 @@ def _coerce_confidence(value: Any, default: float = 0.7) -> float:
     except (TypeError, ValueError):
         confidence = default
     return min(max(confidence, 0.0), 1.0)
+
+
+def _completion_to_text(completion: Any) -> str:
+    """Best-effort extraction of assistant text across TRL completion shapes."""
+    if isinstance(completion, str):
+        return completion
+
+    if isinstance(completion, dict):
+        for key in ("content", "text", "generated_text", "completion"):
+            value = completion.get(key)
+            if isinstance(value, str) and value.strip():
+                return value
+
+        message = completion.get("message")
+        if isinstance(message, dict):
+            extracted = _completion_to_text(message)
+            if extracted.strip():
+                return extracted
+
+        messages = completion.get("messages")
+        if isinstance(messages, list):
+            extracted = _completion_to_text(messages)
+            if extracted.strip():
+                return extracted
+
+    if isinstance(completion, (list, tuple)):
+        for item in reversed(completion):
+            extracted = _completion_to_text(item)
+            if extracted.strip():
+                return extracted
+
+    try:
+        return json.dumps(completion, ensure_ascii=False)
+    except Exception:
+        return str(completion)
 
 
 def _normalise_action_spec(raw_action: Any) -> "TrialAction | None":
@@ -213,16 +256,22 @@ def _normalise_action_spec(raw_action: Any) -> "TrialAction | None":
 
     parameters = dict(parameters)
     if action_type == ActionType.SET_SAMPLE_SIZE.value:
+        raw_sample_size = parameters.get("sample_size", parameters.get("n_patients"))
+        if raw_sample_size is None:
+            raw_sample_size = DEFAULT_SAMPLE_SIZE
         sample_size = _coerce_bounded_int(
-            parameters.get("sample_size"), minimum=30, maximum=500
+            raw_sample_size, minimum=30, maximum=500
         )
         if sample_size is None:
             return None
         parameters["sample_size"] = sample_size
 
     if action_type == ActionType.ENROLL_PATIENTS.value:
+        raw_n_patients = parameters.get("n_patients", parameters.get("sample_size"))
+        if raw_n_patients is None:
+            raw_n_patients = DEFAULT_SAMPLE_SIZE
         n_patients = _coerce_bounded_int(
-            parameters.get("n_patients"), minimum=0, maximum=500
+            raw_n_patients, minimum=0, maximum=500
         )
         if n_patients is None:
             return None
@@ -297,7 +346,8 @@ def _observation_to_plan_prompt(obs: Any) -> str:
         f"Minimum action_type order for completion: {list(REQUIRED_ACTION_ORDER)}.\n"
         "For higher reward, include one useful information action when legal, such as add_biomarker_stratification or estimate_effect_size.\n"
         "Set sample_size and enroll_patients to the same integer between 120 and 420, use 9 to 11 actions, and end with run_primary_analysis.\n"
-        "Respond with ONLY valid JSON: {\"actions\": [action objects]}. Each action object needs action_type and parameters."
+        "Respond with ONLY valid JSON: {\"actions\": [action objects]}. Each action object needs action_type and parameters.\n"
+        "Template: {\"actions\":[{\"action_type\":\"set_primary_endpoint\",\"parameters\":{\"endpoint\":\"overall_survival\"}}, {\"action_type\":\"set_sample_size\",\"parameters\":{\"sample_size\":240}}, ...]}"
     )
 
 
@@ -514,7 +564,7 @@ def _write_summary(
 
 
 def _grpo_reward_fn(
-    completions: list[str],
+    completions: list[Any],
     env: "Environment",
     seed: int,
     max_steps: int,
@@ -529,10 +579,11 @@ def _grpo_reward_fn(
     """
     rewards = []
     for i, completion in enumerate(completions):
+        completion_text = _completion_to_text(completion)
         rewards.append(
             rollout_action_plan_reward(
                 env=env,
-                completion=completion,
+                completion=completion_text,
                 seed=seed + i,
                 max_steps=max_steps,
                 curriculum_tier=curriculum_tier,
