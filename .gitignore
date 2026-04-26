@@ -21,5 +21,12 @@ docs/grounding.md
 .claude/
 outputs/
 
+# Dev utilities (not needed by judges)
+dashboard.html
+debug_reward.py
+eval_compare.py
+plot_rewards.py
+train_kaggle.ipynb
+
 # Allow the reward plot image (needed by README)
 !docs/reward_plot.png
