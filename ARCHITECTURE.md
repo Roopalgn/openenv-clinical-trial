@@ -42,12 +42,11 @@ H100 (all-in-one)                              Trial Simulator
    → TrialLatentState created with hidden ground truth
    → Agent sees: scenario description + initial observation (no hidden values)
 
-2. Agent outputs design decisions (sample_size, add_biomarker):
-   Smart action sequence executes 9–10 prerequisite-correct steps:
-   set_primary_endpoint → set_sample_size → set_inclusion_criteria →
-   set_dosing_schedule → set_control_arm → enroll_patients(N) →
-   run_dose_escalation → [add_biomarker] → run_interim_analysis →
-   run_primary_analysis (triggers terminal rewards)
+2. Agent outputs a full ordered action plan:
+   The training reward executes exactly the model's JSON `actions` list.
+   Parse failures score -3.0, invalid action sequences score -3.0, and
+   incomplete plans receive an additional penalty. There is no fixed
+   prerequisite-correct rollout hidden inside the reward function.
 
 3. Each action:
    → RuleEngine checks FDA constraints + prerequisites (hard block if violated)

@@ -36,6 +36,12 @@ logging.basicConfig(
 )
 log = logging.getLogger("train")
 
+PLAN_PARSE_FAILURE_REWARD = -3.0
+INVALID_SEQUENCE_REWARD = -3.0
+INCOMPLETE_PLAN_PENALTY = -3.0
+DEFAULT_TRAIN_CURRICULUM_TIER = 3
+DEFAULT_FREEZE_CURRICULUM = True
+
 # ---------------------------------------------------------------------------
 # Lazy imports — TRL / vLLM are optional at import time so the module can be
 # imported in test environments without the full ML stack installed.
@@ -114,6 +120,181 @@ def _build_action_from_text(text: str, step: int, available_actions: list[str] |
             justification="fallback: could not parse model output",
             confidence=0.5,
         )
+
+
+def _extract_json_payload(text: str) -> Any | None:
+    """Extract the first JSON object/list from model text."""
+    text = text.strip()
+    candidates = []
+    if "```" in text:
+        for part in text.split("```"):
+            part = part.strip()
+            if part.startswith("json"):
+                part = part[4:].strip()
+            if part:
+                candidates.append(part)
+    candidates.append(text)
+
+    for candidate in candidates:
+        object_start = candidate.find("{")
+        object_end = candidate.rfind("}")
+        list_start = candidate.find("[")
+        list_end = candidate.rfind("]")
+
+        spans = []
+        if object_start != -1 and object_end > object_start:
+            spans.append((object_start, object_end + 1))
+        if list_start != -1 and list_end > list_start:
+            spans.append((list_start, list_end + 1))
+
+        for start, end in sorted(spans, key=lambda span: span[0]):
+            try:
+                return json.loads(candidate[start:end])
+            except json.JSONDecodeError:
+                continue
+    return None
+
+
+def _coerce_bounded_int(value: Any, *, minimum: int, maximum: int) -> int | None:
+    try:
+        coerced = int(float(value))
+    except (TypeError, ValueError):
+        return None
+    return max(minimum, min(maximum, coerced))
+
+
+def _coerce_confidence(value: Any, default: float = 0.7) -> float:
+    try:
+        confidence = float(value)
+    except (TypeError, ValueError):
+        confidence = default
+    return min(max(confidence, 0.0), 1.0)
+
+
+def _normalise_action_spec(raw_action: Any) -> "TrialAction | None":
+    from models import ActionType, TrialAction
+
+    if not isinstance(raw_action, dict):
+        return None
+
+    action_type = raw_action.get("action_type")
+    valid_actions = {action.value for action in ActionType}
+    if action_type not in valid_actions:
+        return None
+
+    parameters = raw_action.get("parameters", {})
+    if parameters is None:
+        parameters = {}
+    if not isinstance(parameters, dict):
+        return None
+
+    parameters = dict(parameters)
+    if action_type == ActionType.SET_SAMPLE_SIZE.value:
+        sample_size = _coerce_bounded_int(
+            parameters.get("sample_size"), minimum=30, maximum=500
+        )
+        if sample_size is None:
+            return None
+        parameters["sample_size"] = sample_size
+
+    if action_type == ActionType.ENROLL_PATIENTS.value:
+        n_patients = _coerce_bounded_int(
+            parameters.get("n_patients"), minimum=0, maximum=500
+        )
+        if n_patients is None:
+            return None
+        parameters["n_patients"] = n_patients
+
+    return TrialAction(
+        action_type=action_type,
+        parameters=parameters,
+        justification=str(raw_action.get("justification", "model action plan")),
+        confidence=_coerce_confidence(raw_action.get("confidence", 0.7)),
+    )
+
+
+def parse_action_plan(text: str, max_actions: int = 12) -> list["TrialAction"] | None:
+    """Parse a full model-generated action plan.
+
+    Accepted shape:
+      {"actions": [{"action_type": "...", "parameters": {...}}, ...]}
+    A bare JSON list of action objects is accepted for convenience.
+    """
+    payload = _extract_json_payload(text)
+    if isinstance(payload, dict):
+        raw_actions = payload.get("actions")
+    elif isinstance(payload, list):
+        raw_actions = payload
+    else:
+        return None
+
+    if not isinstance(raw_actions, list) or not raw_actions:
+        return None
+
+    actions: list["TrialAction"] = []
+    for raw_action in raw_actions[:max_actions]:
+        action = _normalise_action_spec(raw_action)
+        if action is None:
+            return None
+        actions.append(action)
+    return actions
+
+
+def _observation_to_plan_prompt(obs: Any) -> str:
+    """Build the full-episode planning prompt used by GRPO."""
+    return (
+        "You are designing a clinical trial. Produce a complete ordered action plan, not just one action.\n\n"
+        f"Scenario: {obs.scenario_description}\n"
+        f"Current phase: {obs.phase_data.get('current_phase', 'unknown')}\n"
+        f"Phase data: {json.dumps(obs.phase_data)}\n"
+        f"Resources: {json.dumps(obs.resource_status)}\n"
+        f"Currently available actions: {obs.available_actions}\n\n"
+        "The environment will execute exactly the actions you list. Invalid, unparsable, or incomplete plans receive low reward.\n"
+        "Respond with ONLY JSON in this shape:\n"
+        '{"actions":[{"action_type":"set_primary_endpoint","parameters":{"endpoint":"overall_survival"}},{"action_type":"set_sample_size","parameters":{"sample_size":240}}]}'
+    )
+
+
+def rollout_action_plan_reward(
+    env: "Environment",
+    completion: str,
+    seed: int,
+    max_steps: int,
+    curriculum_tier: int = DEFAULT_TRAIN_CURRICULUM_TIER,
+    freeze_curriculum: bool = DEFAULT_FREEZE_CURRICULUM,
+) -> float:
+    """Score one completion by executing exactly its proposed episode plan."""
+    actions = parse_action_plan(completion, max_actions=max_steps)
+    if actions is None:
+        return PLAN_PARSE_FAILURE_REWARD
+
+    try:
+        _obs = env.reset(
+            seed=seed,
+            curriculum_tier=curriculum_tier,
+            freeze_curriculum=freeze_curriculum,
+        )
+        total = 0.0
+        done = False
+
+        for action in actions[:max_steps]:
+            _obs, reward_dict, done, info = env.step_full(action)
+            if not info.get("action_valid", True):
+                return INVALID_SEQUENCE_REWARD
+            total += (
+                sum(reward_dict.values())
+                if isinstance(reward_dict, dict)
+                else float(reward_dict)
+            )
+            if done:
+                return total
+
+        if not done:
+            return total + INCOMPLETE_PLAN_PENALTY
+        return total
+    except Exception as exc:
+        log.debug("Action-plan rollout failed: %s", exc)
+        return PLAN_PARSE_FAILURE_REWARD
 
 
 def rollout_func(
@@ -295,48 +476,31 @@ def _write_summary(
 
 
 def _grpo_reward_fn(
-    completions: list[str], env: "Environment", seed: int, max_steps: int
+    completions: list[str],
+    env: "Environment",
+    seed: int,
+    max_steps: int,
+    curriculum_tier: int = DEFAULT_TRAIN_CURRICULUM_TIER,
+    freeze_curriculum: bool = DEFAULT_FREEZE_CURRICULUM,
 ) -> list[float]:
     """Reward function passed to GRPOTrainer.
 
-    Each completion is treated as a SINGLE action decision. We run a full
-    episode with that action as the first step, then continue with fallback
-    actions to see how the episode plays out. This gives GRPO meaningful
-    reward variance between completions.
+    Each completion must contain the full ordered action plan. The environment
+    executes exactly that plan, so the model earns the low reward band until it
+    learns valid JSON, clinical ordering, enrollment, and terminal analysis.
     """
     rewards = []
     for i, completion in enumerate(completions):
-        obs = env.reset(seed=seed + i)
-        total = 0.0
-        available = obs.available_actions
-        for step_idx in range(max_steps):
-            if step_idx == 0:
-                # First step: use the model's completion
-                action = _build_action_from_text(completion, step_idx, available)
-            else:
-                # Subsequent steps: use available actions from observation
-                if available:
-                    # Pick a phase-appropriate action from available list
-                    fallback_type = available[step_idx % len(available)]
-                else:
-                    fallback_type = "set_primary_endpoint"
-                from models import TrialAction
-                action = TrialAction(
-                    action_type=fallback_type,
-                    parameters={},
-                    justification="continuation step",
-                    confidence=0.7,
-                )
-            obs, reward_dict, done, _ = env.step_full(action)
-            available = obs.available_actions
-            total += (
-                sum(reward_dict.values())
-                if isinstance(reward_dict, dict)
-                else float(reward_dict)
+        rewards.append(
+            rollout_action_plan_reward(
+                env=env,
+                completion=completion,
+                seed=seed + i,
+                max_steps=max_steps,
+                curriculum_tier=curriculum_tier,
+                freeze_curriculum=freeze_curriculum,
             )
-            if done:
-                break
-        rewards.append(total)
+        )
     return rewards
 
 
@@ -529,6 +693,8 @@ def train(args: argparse.Namespace) -> None:
             env=env,
             seed=ep_seed,
             max_steps=args.max_steps,
+            curriculum_tier=args.train_curriculum_tier,
+            freeze_curriculum=not args.no_freeze_curriculum,
         )
         total_reward = sum(rewards)
         episode_rewards.append(total_reward)
@@ -558,20 +724,12 @@ def train(args: argparse.Namespace) -> None:
     prompt_list = []
     for ep_idx in range(args.episodes):
         ep_seed = args.seed + ep_idx if args.seed is not None else random.randint(0, 2**31 - 1)
-        obs = env.reset(seed=ep_seed)
-        available = obs.available_actions
-        prompt_text = (
-            f"You are designing a clinical trial. Choose ONE action from the available actions.\n\n"
-            f"Scenario: {obs.scenario_description}\n"
-            f"Current phase: {obs.phase_data.get('current_phase', 'unknown')}\n"
-            f"Phase data: {json.dumps(obs.phase_data)}\n"
-            f"Resources: {json.dumps(obs.resource_status)}\n"
-            f"Available actions: {available}\n"
-            f"Steps taken: {obs.steps_taken}/{obs.max_steps}\n"
-            f"Hint: {obs.hint}\n\n"
-            "Respond with ONLY a JSON object. Choose action_type from the available actions list above:\n"
-            '{"action_type": "<one of available actions>", "parameters": {}, "justification": "...", "confidence": 0.8}'
+        obs = env.reset(
+            seed=ep_seed,
+            curriculum_tier=args.train_curriculum_tier,
+            freeze_curriculum=not args.no_freeze_curriculum,
         )
+        prompt_text = _observation_to_plan_prompt(obs)
         prompt_list.append(prompt_text)
     prompt_dataset = Dataset.from_dict({"prompt": prompt_list})
 
@@ -668,6 +826,17 @@ def _parse_args() -> argparse.Namespace:
         "--dry-run",
         action="store_true",
         help="Run 2 episodes with random policy to verify pipeline (no training)",
+    )
+    parser.add_argument(
+        "--train-curriculum-tier",
+        type=int,
+        default=DEFAULT_TRAIN_CURRICULUM_TIER,
+        help="Fixed curriculum tier used for stationary GRPO reward rollouts",
+    )
+    parser.add_argument(
+        "--no-freeze-curriculum",
+        action="store_true",
+        help="Allow adaptive curriculum changes during GRPO reward rollouts",
     )
     return parser.parse_args()
 
