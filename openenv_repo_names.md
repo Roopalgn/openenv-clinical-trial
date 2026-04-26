@@ -1,8 +1,8 @@
-#EVALUATION CRITERIA
+# EVALUATION CRITERIA
   
  Go through all these Repos readme, get the top ten best repos, do a deep comparision and also compare with the top 3 winners which should prioritized more.
   
- ### 3.2 Judging Overview (Scoring Weights)
+ ###  Judging Overview (Scoring Weights)
   
 | Criterion | Weight | What It Means |
  |-----------|--------|---------------|
