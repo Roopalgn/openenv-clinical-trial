@@ -131,4 +131,4 @@ def test_complete_informative_plan_reaches_optimal_reward_band() -> None:
 
     reward = rollout_action_plan_reward(env, text, seed=42, max_steps=12)
 
-    assert 10.0 <= reward <= 15.0
+    assert 10.0 <= reward <= 20.0

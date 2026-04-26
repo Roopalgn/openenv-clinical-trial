@@ -157,6 +157,7 @@ class EpisodeManager:
         self._episode_done: bool = False  # M6: prevents stepping after done
         self._freeze_curriculum: bool = False
         self._curriculum_tier_override: int | None = None
+        self._episode_violation_count: int = 0  # V4: cumulative FDA violations
 
     # ------------------------------------------------------------------
     # Public API
@@ -266,6 +267,7 @@ class EpisodeManager:
         self._phase_history = []
         self._step_count = 0
         self._episode_done = False
+        self._episode_violation_count = 0
         self._initial_budget = float(randomized.budget_usd)
 
         # Step 6: Fresh logger (episode_id matches this episode), reward accumulator
@@ -320,6 +322,7 @@ class EpisodeManager:
             compliance = check_fda_compliance(action, self._latent)
 
             if not compliance.valid:
+                self._episode_violation_count += len(compliance.violations)
                 reward = RewardBreakdown(
                     r_validity=-2.0,
                     r_ordering=0.0,
@@ -412,6 +415,7 @@ class EpisodeManager:
                 phase_history=self._phase_history[:-1],  # history before this step
                 initial_budget=self._initial_budget,
                 compliance=compliance,
+                episode_violation_count=self._episode_violation_count,
             )
 
             # Add potential-based shaping bonus: γ·(φ(s') − φ(s))

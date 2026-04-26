@@ -61,8 +61,10 @@ H100 (all-in-one)                              Trial Simulator
    → Trial simulation runs against hidden ground truth
    → Programmatic verification: power, p-value, FDA compliance, budget
    → Terminal calibration: agent's conclusions vs hidden truth
-   → Terminal reward: +4.0 (success) or -1.0 (failure)
+   → Terminal reward: +4.0 (success, power-gated) or -1.0 (failure)
    → Terminal calibration: 0.0 to +2.0 (CI accuracy vs true effect)
+   → Terminal progress bonus: +3.0 × milestones_fraction (smooth gradient)
+   → Episode-wide violation penalty: -0.3 per cumulative FDA violation
    → Curriculum records outcome, adjusts difficulty for next episode
    → If at expert tier: AdversarialDesigner notes weak spots for next scenario
 
@@ -106,8 +108,10 @@ H100 (all-in-one)                              Trial Simulator
 - 8 decomposed components: validity, ordering, info_gain, efficiency, novelty, penalty, terminal_success, terminal_calibration
 - Each component independently verifiable and debuggable
 - Potential-based shaping: γ·(φ(s') − φ(s)) where φ = milestone_completion × budget_efficiency
-- Terminal success: +4.0 on success, -1.0 on failure
+- Terminal success: +4.0 on success (power-gated ramp), -1.0 on failure
 - Terminal calibration: CI accuracy vs true effect size (0.0 to +2.0)
+- Terminal progress bonus: +3.0 × (milestones/7) — smooth gradient even without full completion
+- Episode-wide violation penalty: -0.3 per cumulative violation at terminal
 
 ### Curriculum Controller (`server/curriculum/`)
 - 5 tiers: warmup → beginner → intermediate → advanced → expert

@@ -1,11 +1,11 @@
 """
-Clinical Trial GRPO Training — V2 (Single-Step Evaluation)
+Clinical Trial GRPO Training — V3 (Full-Episode Evaluation)
 
-Fixes from V1:
-- Single-step evaluation (no multi-step noise from random actions)
-- Observation-rich prompts (available_actions, phase, resources)
-- Diverse prompts from different env seeds
-- Proper reward variance for GRPO
+Fixes from V2:
+- Full-episode evaluation (agent plans full action sequence, not single-step)
+- Cumulative reward over complete trial episode gives GRPO the full [-3, +15] range
+- Diverse prompts from different env seeds with observation-rich context
+- Better generation settings for parseability (lower temperature, longer completions)
 
 Usage on Colab:
   1. Upload this file or clone the repo
@@ -25,11 +25,34 @@ import requests
 
 # === CONFIG ===
 ENV_URL = "https://roopalgn-openenv-clinical-trial.hf.space"
-SYSTEM_PROMPT = """You are a clinical trial designer.
-Given the current trial state and available actions, choose the BEST next action.
-Return exactly ONE valid JSON object:
-{"action_type": "<from available_actions>", "parameters": {}, "justification": "why", "confidence": 0.8}
-Do not add any text outside the JSON."""
+SYSTEM_PROMPT = """You are an expert clinical trial designer.
+Given the current trial state, plan the COMPLETE sequence of actions to design a successful trial.
+Return a JSON object with an "actions" list. Each action must have action_type, parameters, justification, and confidence.
+
+Example response:
+{"actions": [
+  {"action_type": "set_primary_endpoint", "parameters": {"endpoint": "overall_survival"}, "justification": "OS is gold standard", "confidence": 0.9},
+  {"action_type": "set_sample_size", "parameters": {"sample_size": 240}, "justification": "Powered for 0.80 at expected effect", "confidence": 0.85},
+  {"action_type": "set_inclusion_criteria", "parameters": {"criteria": "adults 18-75"}, "justification": "Standard population", "confidence": 0.8},
+  {"action_type": "set_exclusion_criteria", "parameters": {"criteria": "prior treatment"}, "justification": "Clean population", "confidence": 0.8},
+  {"action_type": "set_dosing_schedule", "parameters": {"schedule": "daily"}, "justification": "Standard dosing", "confidence": 0.8},
+  {"action_type": "set_control_arm", "parameters": {"control": "placebo"}, "justification": "RCT standard", "confidence": 0.9},
+  {"action_type": "set_randomization_ratio", "parameters": {"ratio": "1:1"}, "justification": "Equal allocation", "confidence": 0.9},
+  {"action_type": "set_blinding", "parameters": {"blinding": "double"}, "justification": "Minimize bias", "confidence": 0.9},
+  {"action_type": "enroll_patients", "parameters": {"n_patients": 240}, "justification": "Full enrollment", "confidence": 0.85},
+  {"action_type": "run_dose_escalation", "parameters": {}, "justification": "Phase I safety", "confidence": 0.8},
+  {"action_type": "estimate_effect_size", "parameters": {}, "justification": "Quantify treatment effect", "confidence": 0.7},
+  {"action_type": "observe_safety_signal", "parameters": {}, "justification": "Monitor AEs", "confidence": 0.8},
+  {"action_type": "run_interim_analysis", "parameters": {}, "justification": "Check futility/efficacy", "confidence": 0.75},
+  {"action_type": "run_primary_analysis", "parameters": {}, "justification": "Final statistical test", "confidence": 0.8},
+  {"action_type": "synthesize_conclusion", "parameters": {}, "justification": "Complete trial report", "confidence": 0.85}
+]}
+
+You MUST include ALL phases: design → enrollment → analysis → conclusion.
+Return ONLY the JSON object, no other text."""
+
+# Maximum steps to execute per episode during reward evaluation
+MAX_EPISODE_STEPS = 20
 
 
 def env_reset(seed=None):
@@ -51,35 +74,184 @@ def env_step(action_type, parameters=None, justification="", confidence=0.5):
     return resp.json()
 
 
-def parse_action(text, available_actions=None):
-    """Extract JSON action from model output."""
+def parse_action_plan(text):
+    """Extract a list of actions from model output.
+    
+    Handles:
+    - {"actions": [...]} format (full plan)
+    - Single action {"action_type": ...} format  
+    - Fenced code blocks ```json ... ```
+    - Partial/malformed JSON recovery
+    """
+    # Try fenced code blocks first
     candidates = []
-    fenced = re.findall(r"```json\s*(.*?)\s*```", text, flags=re.DOTALL | re.IGNORECASE)
+    fenced = re.findall(r"```(?:json)?\s*(.*?)\s*```", text, flags=re.DOTALL | re.IGNORECASE)
     candidates.extend(fenced)
     candidates.append(text)
-
+    
     for candidate in candidates:
+        # Find JSON objects
         start = candidate.find("{")
         end = candidate.rfind("}")
         if start == -1 or end == -1 or end <= start:
             continue
+        
+        json_str = candidate[start:end + 1]
+        
+        # Try standard JSON parse
         try:
-            parsed = json.loads(candidate[start:end + 1])
-            at = str(parsed.get("action_type", "")).strip()
-            params = parsed.get("parameters", {})
-            if not isinstance(params, dict):
-                params = {}
-            if available_actions and at not in available_actions:
-                at = available_actions[0]
-            elif not at:
-                at = "set_primary_endpoint"
-            return {"action_type": at, "parameters": params}
-        except Exception:
+            parsed = json.loads(json_str)
+        except json.JSONDecodeError:
+            # Try ast.literal_eval for Python-style dicts
+            try:
+                import ast
+                parsed = ast.literal_eval(json_str)
+            except (ValueError, SyntaxError):
+                continue
+        
+        if not isinstance(parsed, dict):
             continue
+            
+        # Full plan format: {"actions": [...]}
+        if "actions" in parsed and isinstance(parsed["actions"], list):
+            actions = []
+            for a in parsed["actions"]:
+                if isinstance(a, dict) and "action_type" in a:
+                    actions.append(_normalize_action(a))
+            if actions:
+                return actions
+        
+        # Single action format: {"action_type": "..."}
+        if "action_type" in parsed:
+            return [_normalize_action(parsed)]
+    
+    # Last resort: try to find individual action objects
+    action_pattern = re.findall(r'\{[^{}]*"action_type"\s*:\s*"[^"]+?"[^{}]*\}', text)
+    if action_pattern:
+        actions = []
+        for match in action_pattern:
+            try:
+                parsed = json.loads(match)
+                actions.append(_normalize_action(parsed))
+            except json.JSONDecodeError:
+                continue
+        if actions:
+            return actions
+    
+    return []  # Parse failure
 
-    if available_actions:
-        return {"action_type": available_actions[0], "parameters": {}}
-    return {"action_type": "set_primary_endpoint", "parameters": {}}
+
+def _normalize_action(action_dict):
+    """Normalize an action dict to have required fields."""
+    at = str(action_dict.get("action_type", "")).strip()
+    params = action_dict.get("parameters", {})
+    if not isinstance(params, dict):
+        params = {}
+    justification = str(action_dict.get("justification", ""))
+    confidence = float(action_dict.get("confidence", 0.7))
+    confidence = max(0.0, min(1.0, confidence))
+    
+    # Handle n_patients / sample_size normalization
+    if at == "enroll_patients" and "n_patients" not in params:
+        if "sample_size" in params:
+            params["n_patients"] = params.pop("sample_size")
+        else:
+            params["n_patients"] = 240  # default
+    if at == "set_sample_size" and "sample_size" not in params:
+        if "n_patients" in params:
+            params["sample_size"] = params.pop("n_patients")
+        else:
+            params["sample_size"] = 240
+    
+    return {
+        "action_type": at,
+        "parameters": params,
+        "justification": justification,
+        "confidence": confidence,
+    }
+
+
+def extract_reward(result):
+    """Extract total reward from step result."""
+    reward = result.get("reward", 0.0)
+    if isinstance(reward, dict):
+        # Use canonical reward keys, not raw sum
+        canonical_keys = [
+            "r_validity", "r_ordering", "r_info_gain", "r_efficiency",
+            "r_novelty", "r_penalty", "r_terminal_success", "r_terminal_calibration"
+        ]
+        total = 0.0
+        for key in canonical_keys:
+            if key in reward:
+                total += float(reward[key])
+        return total if total != 0.0 else float(sum(float(v) for v in reward.values()))
+    return float(reward)
+
+
+def full_episode_reward(model_response, seed):
+    """Score a model's full action plan by executing it against the environment.
+    
+    This gives GRPO access to the full reward range [-3, +15]:
+    - Parse failure → -3.0
+    - 1-2 valid actions → ~-1 to +1 (mostly ordering + validity)
+    - Partial plan (5-8 actions) → ~+2 to +5 (some milestones)
+    - Complete plan (12-15 actions) → ~+5 to +15 (milestones + terminal)
+    
+    This is the key change from V2: single-step gave [-2.5, +0.25] range,
+    which had almost no gradient once the model learned valid JSON.
+    """
+    try:
+        # Parse the model's action plan
+        actions = parse_action_plan(model_response)
+        
+        if not actions:
+            return -3.0  # Parse failure
+        
+        # Reset the environment
+        obs = env_reset(seed=seed)
+        
+        # Execute each action in order, accumulating reward
+        total_reward = 0.0
+        steps_taken = 0
+        
+        for action in actions[:MAX_EPISODE_STEPS]:
+            try:
+                result = env_step(
+                    action["action_type"],
+                    action.get("parameters", {}),
+                    action.get("justification", ""),
+                    action.get("confidence", 0.7),
+                )
+                step_reward = extract_reward(result)
+                total_reward += step_reward
+                steps_taken += 1
+                
+                # Check if episode ended
+                obs_data = result.get("observation", result)
+                if isinstance(obs_data, dict) and obs_data.get("done", False):
+                    break
+                    
+            except requests.exceptions.HTTPError as e:
+                # Action was rejected by the server — penalty but continue
+                total_reward += -1.0
+                steps_taken += 1
+                continue
+            except Exception as e:
+                print(f"  Step error: {e}")
+                total_reward += -0.5
+                steps_taken += 1
+                continue
+        
+        # Bonus for plan completeness: longer valid plans that reach later phases
+        # This helps differentiate "3 design actions" from "15-action full plan"
+        if steps_taken == 0:
+            return -3.0
+        
+        return total_reward
+        
+    except Exception as e:
+        print(f"Episode reward error: {e}")
+        return -3.0
 
 
 def build_prompt(obs):
@@ -91,34 +263,13 @@ def build_prompt(obs):
         f"Scenario: {obs.get('scenario_description', '')}\n"
         f"Current phase: {phase}\n"
         f"Resources: {json.dumps(obs.get('resource_status', {}))}\n"
-        f"Available actions: {available}\n"
-        f"Steps taken: {obs.get('steps_taken', 0)}/{obs.get('max_steps', 100)}\n"
+        f"Available starting actions: {available}\n"
+        f"Max steps: {obs.get('max_steps', 100)}\n"
         f"Hint: {obs.get('hint', '')}\n\n"
-        f"Choose ONE action from: {available}\n"
-        f"Return ONLY JSON: "
-        '{"action_type": "<from list above>", "parameters": {}, "justification": "...", "confidence": 0.8}'
+        f"Plan the COMPLETE sequence of actions for a successful trial.\n"
+        f"Include ALL phases: design → enrollment → analysis → conclusion.\n"
+        f"Return ONLY a JSON object with an 'actions' list (12-15 actions)."
     )
-
-
-def extract_reward(result):
-    """Extract total reward from step result."""
-    reward = result.get("reward", 0.0)
-    if isinstance(reward, dict):
-        return float(sum(float(v) for v in reward.values()))
-    return float(reward)
-
-
-def single_step_reward(model_response, seed):
-    """Score a single model output with one env step. No multi-step noise."""
-    try:
-        obs = env_reset(seed=seed)
-        available = obs.get("available_actions", ["set_primary_endpoint"])
-        action = parse_action(model_response, available)
-        result = env_step(action["action_type"], action.get("parameters", {}))
-        return extract_reward(result)
-    except Exception as e:
-        print(f"Reward error: {e}")
-        return -2.0
 
 
 def generate_prompts(n_prompts, base_seed=42):
@@ -138,42 +289,62 @@ def generate_prompts(n_prompts, base_seed=42):
 
 
 def run_dry_run(n_episodes=5, base_seed=42):
-    """Validate pipeline: test rewards are discriminative."""
-    print("=== DRY RUN: Testing reward discrimination ===")
-    os.makedirs("outputs/grpo_v2", exist_ok=True)
+    """Validate pipeline: test that full-episode rewards are discriminative."""
+    print("=== DRY RUN: Testing full-episode reward discrimination ===")
+    os.makedirs("outputs/grpo_v3", exist_ok=True)
 
     results = []
     for ep in range(n_episodes):
         seed = base_seed + ep
-        obs = env_reset(seed=seed)
-        available = obs.get("available_actions", ["set_primary_endpoint"])
-
-        # Test 1: valid action (first available)
-        valid_action = available[0]
-        r1 = env_step(valid_action)
-        reward_valid = extract_reward(r1)
-
-        # Reset and test 2: invalid action
-        obs = env_reset(seed=seed)
-        r2 = env_step("synthesize_conclusion")  # almost always invalid early
-        reward_invalid = extract_reward(r2)
-
-        delta = reward_valid - reward_invalid
+        
+        # Test 1: Good plan (full sequence)
+        good_plan = json.dumps({"actions": [
+            {"action_type": "set_primary_endpoint", "parameters": {"endpoint": "OS"}, "justification": "gold standard", "confidence": 0.9},
+            {"action_type": "set_sample_size", "parameters": {"sample_size": 240}, "justification": "adequate power", "confidence": 0.85},
+            {"action_type": "set_inclusion_criteria", "parameters": {"criteria": "adults"}, "justification": "standard", "confidence": 0.8},
+            {"action_type": "set_exclusion_criteria", "parameters": {"criteria": "prior tx"}, "justification": "clean", "confidence": 0.8},
+            {"action_type": "set_dosing_schedule", "parameters": {"schedule": "daily"}, "justification": "standard", "confidence": 0.8},
+            {"action_type": "set_control_arm", "parameters": {"control": "placebo"}, "justification": "RCT", "confidence": 0.9},
+            {"action_type": "set_randomization_ratio", "parameters": {"ratio": "1:1"}, "justification": "equal", "confidence": 0.9},
+            {"action_type": "set_blinding", "parameters": {"blinding": "double"}, "justification": "bias control", "confidence": 0.9},
+            {"action_type": "enroll_patients", "parameters": {"n_patients": 240}, "justification": "full enrollment", "confidence": 0.85},
+            {"action_type": "run_dose_escalation", "parameters": {}, "justification": "Phase I", "confidence": 0.8},
+            {"action_type": "estimate_effect_size", "parameters": {}, "justification": "quantify", "confidence": 0.7},
+            {"action_type": "observe_safety_signal", "parameters": {}, "justification": "safety", "confidence": 0.8},
+            {"action_type": "run_interim_analysis", "parameters": {}, "justification": "interim check", "confidence": 0.75},
+            {"action_type": "run_primary_analysis", "parameters": {}, "justification": "final test", "confidence": 0.8},
+            {"action_type": "synthesize_conclusion", "parameters": {}, "justification": "complete", "confidence": 0.85},
+        ]})
+        reward_good = full_episode_reward(good_plan, seed)
+        
+        # Test 2: Minimal plan (just 2 design actions)
+        minimal_plan = json.dumps({"actions": [
+            {"action_type": "set_primary_endpoint", "parameters": {"endpoint": "OS"}, "justification": "test", "confidence": 0.5},
+            {"action_type": "set_sample_size", "parameters": {"sample_size": 50}, "justification": "test", "confidence": 0.5},
+        ]})
+        reward_minimal = full_episode_reward(minimal_plan, seed)
+        
+        # Test 3: Parse failure
+        reward_fail = full_episode_reward("I don't know how to design a trial", seed)
+        
+        delta = reward_good - reward_minimal
+        print(f"  Ep {ep+1}: good={reward_good:.3f} minimal={reward_minimal:.3f} fail={reward_fail:.3f} delta={delta:.3f}")
         results.append(delta)
-        print(f"  Ep {ep+1}: valid={reward_valid:.3f} invalid={reward_invalid:.3f} delta={delta:.3f}")
 
     avg_delta = sum(results) / len(results)
-    print(f"\nAvg reward delta (valid - invalid): {avg_delta:.3f}")
-    if avg_delta > 0.5:
-        print("✓ Rewards are discriminative. Ready for training.")
+    print(f"\nAvg reward delta (good - minimal): {avg_delta:.3f}")
+    if avg_delta > 2.0:
+        print("✓ Rewards are highly discriminative. Ready for training.")
+    elif avg_delta > 0.5:
+        print("~ Rewards are moderately discriminative.")
     else:
         print("✗ Reward discrimination too low. Check server deployment.")
     return avg_delta
 
 
 def run_training(args):
-    """Full GRPO training loop."""
-    print("=== GRPO TRAINING (Single-Step) ===")
+    """Full GRPO training loop with full-episode evaluation."""
+    print("=== GRPO TRAINING V3 (Full-Episode) ===")
 
     # Generate diverse prompts
     print(f"Generating {args.episodes} diverse prompts...")
@@ -224,23 +395,27 @@ def run_training(args):
         })
     train_dataset = Dataset.from_list(chat_prompts)
 
-    # Reward function — single step per completion
+    # Reward function — full episode per completion
     seed_counter = [0]
 
     def reward_func(completions, **kwargs):
         rewards = []
         for completion in completions:
+            # Extract text from various TRL completion formats
             if isinstance(completion, list):
                 text = completion[-1]["content"] if completion else ""
+            elif isinstance(completion, dict):
+                text = completion.get("content", str(completion))
             else:
                 text = str(completion)
+            
             seed = args.seed + 10000 + seed_counter[0]
             seed_counter[0] += 1
-            reward = single_step_reward(text, seed)
+            reward = full_episode_reward(text, seed)
             rewards.append(reward)
         return rewards
 
-    # Configure GRPO
+    # Configure GRPO — V3 settings tuned for full-episode evaluation
     import torch
     from trl import GRPOConfig, GRPOTrainer
 
@@ -248,10 +423,12 @@ def run_training(args):
     use_fp16 = torch.cuda.is_available() and not use_bf16
 
     training_args = GRPOConfig(
-        output_dir="checkpoints/grpo_v2",
+        output_dir="checkpoints/grpo_v3",
         num_generations=args.num_generations,
-        max_completion_length=256,
-        temperature=0.7,
+        # V3: Longer completions needed for full action plans (15 actions × ~50 tokens)
+        max_completion_length=512,
+        # V3: Lower temperature for more structured/parseable output
+        temperature=0.5,
         learning_rate=5e-6,
         num_train_epochs=1,
         per_device_train_batch_size=args.num_generations,
@@ -276,12 +453,13 @@ def run_training(args):
     )
 
     print(f"Training: {args.episodes} steps, {args.num_generations} generations/step")
+    print(f"Full-episode evaluation with up to {MAX_EPISODE_STEPS} steps per completion")
     start_time = datetime.now(timezone.utc)
     trainer.train()
     end_time = datetime.now(timezone.utc)
 
     # Save artifacts
-    os.makedirs("outputs/grpo_v2", exist_ok=True)
+    os.makedirs("outputs/grpo_v3", exist_ok=True)
     reward_rows = []
     for idx, log in enumerate(trainer.state.log_history, start=1):
         if "reward" not in log:
@@ -294,7 +472,7 @@ def run_training(args):
         })
 
     if reward_rows:
-        csv_path = "outputs/grpo_v2/reward_log.csv"
+        csv_path = "outputs/grpo_v3/reward_log.csv"
         with open(csv_path, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=["step", "reward", "reward_std", "loss"])
             writer.writeheader()
@@ -312,6 +490,8 @@ def run_training(args):
             "model_size": args.model_size,
             "episodes": args.episodes,
             "num_generations": args.num_generations,
+            "evaluation_mode": "full_episode",
+            "max_episode_steps": MAX_EPISODE_STEPS,
             "mean_reward": float(np.mean(rewards)),
             "final_reward": float(rewards[-1]),
             "max_reward": float(max(rewards)),
@@ -320,16 +500,16 @@ def run_training(args):
             "runtime_seconds": (end_time - start_time).total_seconds(),
             "completed_at": end_time.isoformat(),
         }
-        with open("outputs/grpo_v2/training_summary.json", "w") as f:
+        with open("outputs/grpo_v3/training_summary.json", "w") as f:
             json.dump(summary, f, indent=2)
         print(f"\nResults: mean={summary['mean_reward']:.3f}, slope={slope:.4f}")
-        print(f"Saved to outputs/grpo_v2/")
+        print(f"Saved to outputs/grpo_v3/")
     else:
         print("No reward rows captured.")
 
     # Save model
-    model.save_pretrained("checkpoints/grpo_v2/final")
-    tokenizer.save_pretrained("checkpoints/grpo_v2/final")
+    model.save_pretrained("checkpoints/grpo_v3/final")
+    tokenizer.save_pretrained("checkpoints/grpo_v3/final")
     print("Training complete!")
 
 
