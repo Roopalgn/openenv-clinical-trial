@@ -54,6 +54,7 @@ REQUIRED_ACTION_ORDER: tuple[str, ...] = (
     "run_dose_escalation",
     "run_interim_analysis",
     "run_primary_analysis",
+    "synthesize_conclusion",
 )
 DEFAULT_SAMPLE_SIZE = 240
 REWARD_COMPONENT_KEYS: tuple[str, ...] = (
@@ -345,7 +346,7 @@ def _observation_to_plan_prompt(obs: Any) -> str:
         "The environment will execute exactly the actions you list. Invalid, unparsable, or incomplete plans receive low reward.\n"
         f"Minimum action_type order for completion: {list(REQUIRED_ACTION_ORDER)}.\n"
         "For higher reward, include one useful information action when legal, such as add_biomarker_stratification or estimate_effect_size.\n"
-        "Set sample_size and enroll_patients to the same integer between 120 and 420, use 9 to 11 actions, and end with run_primary_analysis.\n"
+        "Set sample_size and enroll_patients to the same integer between 120 and 420, use 10 to 12 actions, and end with run_primary_analysis followed by synthesize_conclusion.\n"
         "Respond with ONLY valid JSON: {\"actions\": [action objects]}. Each action object needs action_type and parameters.\n"
         "Template: {\"actions\":[{\"action_type\":\"set_primary_endpoint\",\"parameters\":{\"endpoint\":\"overall_survival\"}}, {\"action_type\":\"set_sample_size\",\"parameters\":{\"sample_size\":240}}, ...]}"
     )

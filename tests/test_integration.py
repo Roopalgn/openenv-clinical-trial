@@ -388,17 +388,24 @@ class TestFDAComplianceInvalidActions:
             f"expected False for RUN_PRIMARY_ANALYSIS without interim, got True"
         )
 
-    def test_synthesize_conclusion_without_trial_complete(self):
-        """SYNTHESIZE_CONCLUSION without trial_complete=True → valid=False."""
+    def test_synthesize_conclusion_without_primary_analysis(self):
+        """SYNTHESIZE_CONCLUSION without primary_analysis_complete=True → valid=False.
+
+        trial_complete is now set BY SYNTHESIZE_CONCLUSION, so the prerequisite
+        is primary_analysis_complete (the agent must have run primary analysis
+        first).
+        """
         latent = self._make_base_latent(
             episode_phase="submission",
+            primary_analysis_complete=False,
             trial_complete=False,
         )
         action = _make_action(ActionType.SYNTHESIZE_CONCLUSION)
         result = check_fda_compliance(action, latent)
         assert result.valid is False, (
             f"seed={FIXED_SEED} | step=0 | field=valid | "
-            f"expected False for SYNTHESIZE_CONCLUSION without trial_complete, got True"
+            f"expected False for SYNTHESIZE_CONCLUSION without primary_analysis, "
+            f"got True"
         )
 
     def test_valid_action_returns_valid_true(self):
@@ -468,6 +475,7 @@ class TestComputeReward:
             effect_estimated=True,
             protocol_submitted=True,
             interim_complete=True,
+            primary_analysis_complete=True,
             trial_complete=False,
             adverse_events=0,
             episode_phase="analysis",
@@ -482,6 +490,7 @@ class TestComputeReward:
                 ActionType.RUN_DOSE_ESCALATION.value,
                 ActionType.RUN_INTERIM_ANALYSIS.value,
                 ActionType.ESTIMATE_EFFECT_SIZE.value,
+                ActionType.RUN_PRIMARY_ANALYSIS.value,
             ],
             seed=FIXED_SEED,
         )

@@ -18,6 +18,7 @@ def _milestone_completion(latent: TrialLatentState) -> float:
         latent.phase_i_complete,
         latent.interim_complete,
         latent.protocol_submitted,
+        latent.primary_analysis_complete,
         latent.trial_complete,
     ]
     return sum(1.0 for m in milestones if m) / len(milestones)

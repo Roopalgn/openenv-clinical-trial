@@ -99,6 +99,7 @@ def test_complete_valid_plan_reaches_positive_reward_band() -> None:
             {"action_type": "run_dose_escalation", "parameters": {}},
             {"action_type": "run_interim_analysis", "parameters": {}},
             {"action_type": "run_primary_analysis", "parameters": {}},
+            {"action_type": "synthesize_conclusion", "parameters": {}},
         ]
     )
 
@@ -124,6 +125,7 @@ def test_complete_informative_plan_reaches_optimal_reward_band() -> None:
             {"action_type": "estimate_effect_size", "parameters": {}},
             {"action_type": "run_interim_analysis", "parameters": {}},
             {"action_type": "run_primary_analysis", "parameters": {}},
+            {"action_type": "synthesize_conclusion", "parameters": {}},
         ]
     )
 

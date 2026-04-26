@@ -18,7 +18,7 @@ r_step = r_validity + r_ordering + r_info_gain + r_efficiency + r_novelty + r_pe
 
 | Component | What It Measures | Reward | Verification |
 |-----------|-----------------|--------|-------------|
-| `r_validity` | FDA rule compliance | +0.05 pass, −2.0 invalid | Rule engine (binary) |
+| `r_validity` | FDA rule compliance | +0.05 first-time valid, 0.0 repeat valid, −2.0 invalid | Rule engine (binary) |
 | `r_ordering` | Correct phase workflow | +0.1 correct, −0.3×N skip | Phase detection heuristic |
 | `r_info_gain` | Information gain + milestone bonuses | +0.1 to +1.5 | Power × base + first-time milestone |
 | `r_efficiency` | Budget efficiency (terminal only) | 0.0 to +0.3 | Math (remaining / initial budget) |
@@ -44,20 +44,24 @@ r_step = r_validity + r_ordering + r_info_gain + r_efficiency + r_novelty + r_pe
 | Effect estimated | +0.5 | First `estimate_effect_size` with effect_estimated |
 | Interim complete | +1.0 | First `run_interim_analysis` with interim_complete |
 | Protocol submitted | +0.5 | First `submit_to_fda_review` with protocol_submitted |
-| Trial complete | +1.5 | First `run_primary_analysis` with trial_complete |
+| Primary analysis complete | +1.0 | First `run_primary_analysis` with primary_analysis_complete |
+| Trial complete | +1.5 | First `synthesize_conclusion` with trial_complete |
 | Patients enrolled | +0.3 | First `enroll_patients` with patients > 0 |
 
 ---
 
 ## Terminal Reward (2 components)
 
-Fires when `trial_complete=True` after `run_primary_analysis`.
+Fires when `trial_complete=True` after `synthesize_conclusion`. (`run_primary_analysis` alone sets `primary_analysis_complete` and unlocks `synthesize_conclusion` but no longer ends the episode — the agent must produce a conclusion.)
 
 | Component | Condition | Reward |
 |-----------|----------|--------|
-| `r_terminal_success` | Trial succeeds (p < α, no failure) | +4.0 |
-| | Trial completes but fails | −1.0 |
+| `r_terminal_success` | p < α, no failure, power ≥ 0.80 | +4.0 |
+| | p < α, no failure, 0.40 ≤ power < 0.80 | linear ramp 0 → +4.0 |
+| | Trial completes but fails (or power < 0.40) | −1.0 |
 | `r_terminal_calibration` | CI accuracy vs true effect size | 0.0 to +2.0 |
+
+The power-gated ramp prevents the agent from being rewarded for statistically unsound trials that hit p < 0.05 by chance on small n.
 
 **Timeout:** If steps ≥ max_steps without completion, earned components are preserved and an additional timeout penalty is applied (`r_validity -= 0.5`, `r_penalty -= 1.5`).
 

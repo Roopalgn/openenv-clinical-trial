@@ -358,20 +358,26 @@ class TestAvailableActions:
         obs = _make_obs(generator, latent, trial_state)
         assert ActionType.ESTIMATE_EFFECT_SIZE.value in obs.available_actions
 
-    def test_synthesize_conclusion_requires_trial_complete(
+    def test_synthesize_conclusion_requires_primary_analysis(
         self, generator, base_latent, trial_state
     ):
         latent = base_latent.model_copy(
-            update={"episode_phase": "submission", "trial_complete": False}
+            update={
+                "episode_phase": "submission",
+                "primary_analysis_complete": False,
+            }
         )
         obs = _make_obs(generator, latent, trial_state)
         assert ActionType.SYNTHESIZE_CONCLUSION.value not in obs.available_actions
 
-    def test_synthesize_conclusion_available_when_trial_complete(
+    def test_synthesize_conclusion_available_after_primary_analysis(
         self, generator, base_latent, trial_state
     ):
         latent = base_latent.model_copy(
-            update={"episode_phase": "submission", "trial_complete": True}
+            update={
+                "episode_phase": "submission",
+                "primary_analysis_complete": True,
+            }
         )
         obs = _make_obs(generator, latent, trial_state)
         assert ActionType.SYNTHESIZE_CONCLUSION.value in obs.available_actions

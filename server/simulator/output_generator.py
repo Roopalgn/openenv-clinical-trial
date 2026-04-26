@@ -234,7 +234,7 @@ class OutputGenerator:
                 return False
 
         if action_type == ActionType.SYNTHESIZE_CONCLUSION:
-            if not latent.trial_complete:
+            if not latent.primary_analysis_complete:
                 return False
 
         return True

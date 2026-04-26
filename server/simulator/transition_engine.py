@@ -134,6 +134,12 @@ class TransitionEngine:
             updated.interim_complete = True
 
         if action.action_type == ActionType.RUN_PRIMARY_ANALYSIS:
+            updated.primary_analysis_complete = True
+
+        # trial_complete is only set by SYNTHESIZE_CONCLUSION so the agent
+        # is forced through the full conclusion/submission workflow rather
+        # than ending the episode the moment primary analysis runs.
+        if action.action_type == ActionType.SYNTHESIZE_CONCLUSION:
             updated.trial_complete = True
 
         # --- Soft violation: degrade data quality ---

@@ -27,13 +27,22 @@ from server.rules.fda_rules import ComplianceResult, check_fda_compliance
 # Tuned for GRPO: minimise free per-step floor so within-group variance is high.
 # Good valid action: ~1.0 | Mediocre valid: ~0.1 | Invalid: ~-2.5
 _VALIDITY_VALID = 0.05
+_VALIDITY_REPEAT = 0.0
 _VALIDITY_INVALID = -2.0
 _PENALTY_INVALID = -0.5
 _TERMINAL_SUCCESS = 4.0
+_TERMINAL_FAILURE = -1.0
 _TERMINAL_CALIBRATION = 2.0
 _INFO_GAIN_BASE = 1.0
 _EFFICIENCY_SCALE = 0.3
 _NOVELTY_BASE = 0.1
+# Statistical-power gating for the terminal success bonus. Trials that hit
+# p < 0.05 with very low power (small n + large effect + noise) used to receive
+# the full +4.0 bonus, which trained the agent to design statistically unsound
+# studies. The bonus now ramps linearly from POWER_FLOOR (no bonus) to
+# POWER_TARGET (full bonus).
+_TERMINAL_SUCCESS_POWER_FLOOR = 0.40
+_TERMINAL_SUCCESS_POWER_TARGET = 0.80
 
 
 def compute_reward(
@@ -65,7 +74,19 @@ def compute_reward(
     if compliance is None:
         compliance = check_fda_compliance(action, latent)
 
-    r_validity = _VALIDITY_VALID if compliance.valid else _VALIDITY_INVALID
+    if not compliance.valid:
+        r_validity = _VALIDITY_INVALID
+    else:
+        # Repeated valid actions get 0.0, not +0.05. Otherwise the agent can
+        # farm a free per-step floor (validity + ordering + novelty) by spamming
+        # any one valid action type forever.
+        prior_history = (
+            latent.action_history[:-1] if latent.action_history else []
+        )
+        if action.action_type.value in prior_history:
+            r_validity = _VALIDITY_REPEAT
+        else:
+            r_validity = _VALIDITY_VALID
     r_penalty = (
         _PENALTY_INVALID * len(compliance.violations) if not compliance.valid else 0.0
     )
@@ -150,8 +171,12 @@ def _milestone_reward(action: TrialAction, latent: TrialLatentState) -> float:
     if (action.action_type == ActionType.SUBMIT_TO_FDA_REVIEW
             and latent.protocol_submitted and action_count == 1):
         bonus += _MILESTONE_BONUS * 0.5
-    # Primary analysis (trial complete) — first time only
+    # Primary analysis run — first time only
     if (action.action_type == ActionType.RUN_PRIMARY_ANALYSIS
+            and latent.primary_analysis_complete and action_count == 1):
+        bonus += _MILESTONE_BONUS
+    # Synthesize conclusion (trial complete) — first time only
+    if (action.action_type == ActionType.SYNTHESIZE_CONCLUSION
             and latent.trial_complete and action_count == 1):
         bonus += _MILESTONE_BONUS * 1.5
     # Patient enrollment — first time only (not per-repeat)
@@ -190,12 +215,31 @@ def _novelty_reward(action: TrialAction, latent: TrialLatentState) -> float:
 
 
 def _terminal_success_reward(latent: TrialLatentState, result: TrialResult) -> float:
-    """Positive reward when the episode ends with a successful trial (req 6.4)."""
-    if latent.trial_complete and result.success and result.failure_reason is None:
+    """Positive reward when the episode ends with a successful trial (req 6.4).
+
+    Success requires both p < alpha and adequate statistical power. Underpowered
+    trials that happen to hit p < 0.05 by chance (small n, large effect, noise)
+    used to receive the full +4.0 bonus, which trained the agent to design
+    statistically unsound studies. Now the bonus is scaled linearly by power
+    above the floor so that there is still a usable gradient on hard scenarios
+    where reaching the canonical 0.80 power target is infeasible within the
+    budget.
+    """
+    if not latent.trial_complete:
+        return 0.0
+    if not (result.success and result.failure_reason is None):
+        return _TERMINAL_FAILURE
+    if not math.isfinite(result.power):
+        return _TERMINAL_FAILURE
+    if result.power < _TERMINAL_SUCCESS_POWER_FLOOR:
+        return _TERMINAL_FAILURE
+    # Linear ramp from POWER_FLOOR → POWER_TARGET maps to 0 → full bonus,
+    # capped at full bonus once we hit the canonical 0.80 target.
+    span = _TERMINAL_SUCCESS_POWER_TARGET - _TERMINAL_SUCCESS_POWER_FLOOR
+    if span <= 0.0 or result.power >= _TERMINAL_SUCCESS_POWER_TARGET:
         return _TERMINAL_SUCCESS
-    if latent.trial_complete:
-        return -1.0
-    return 0.0
+    fraction = (result.power - _TERMINAL_SUCCESS_POWER_FLOOR) / span
+    return _TERMINAL_SUCCESS * fraction
 
 
 def _terminal_calibration_reward(

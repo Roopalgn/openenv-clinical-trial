@@ -372,6 +372,7 @@ class TestCurriculumControl:
             _make_action(ActionType.RUN_DOSE_ESCALATION),
             _make_action(ActionType.RUN_INTERIM_ANALYSIS),
             _make_action(ActionType.RUN_PRIMARY_ANALYSIS),
+            _make_action(ActionType.SYNTHESIZE_CONCLUSION),
         ]
 
         done = False

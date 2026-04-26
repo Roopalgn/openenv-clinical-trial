@@ -136,10 +136,10 @@ def check_fda_compliance(
             )
 
     if action.action_type == ActionType.SYNTHESIZE_CONCLUSION:
-        if not latent.trial_complete:
+        if not latent.primary_analysis_complete:
             violations.append(
-                "Cannot synthesize conclusion: trial is not complete "
-                "(trial_complete=False)."
+                "Cannot synthesize conclusion: primary analysis has not been run "
+                "(primary_analysis_complete=False)."
             )
 
     # 3. Prerequisite checks
