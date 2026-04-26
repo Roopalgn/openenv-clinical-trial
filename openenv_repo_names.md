@@ -1,6 +1,6 @@
 # EVALUATION CRITERIA
   
- Go through all these Repos readme, get the top ten best repos, do a deep comparision and also compare with the top 3 winners which should prioritized more.
+ Go through all these Repo's readme, get the top ten best repos, do a deep comparision and also compare with the top 3 winners which should be prioritized more.
   
  ###  Judging Overview (Scoring Weights)
   
