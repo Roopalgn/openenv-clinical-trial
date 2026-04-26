@@ -34,22 +34,17 @@ Example response:
   {"action_type": "set_primary_endpoint", "parameters": {"endpoint": "overall_survival"}, "justification": "OS is gold standard", "confidence": 0.9},
   {"action_type": "set_sample_size", "parameters": {"sample_size": 240}, "justification": "Powered for 0.80 at expected effect", "confidence": 0.85},
   {"action_type": "set_inclusion_criteria", "parameters": {"criteria": "adults 18-75"}, "justification": "Standard population", "confidence": 0.8},
-  {"action_type": "set_exclusion_criteria", "parameters": {"criteria": "prior treatment"}, "justification": "Clean population", "confidence": 0.8},
   {"action_type": "set_dosing_schedule", "parameters": {"schedule": "daily"}, "justification": "Standard dosing", "confidence": 0.8},
   {"action_type": "set_control_arm", "parameters": {"control": "placebo"}, "justification": "RCT standard", "confidence": 0.9},
-  {"action_type": "set_randomization_ratio", "parameters": {"ratio": "1:1"}, "justification": "Equal allocation", "confidence": 0.9},
-  {"action_type": "set_blinding", "parameters": {"blinding": "double"}, "justification": "Minimize bias", "confidence": 0.9},
   {"action_type": "enroll_patients", "parameters": {"n_patients": 240}, "justification": "Full enrollment", "confidence": 0.85},
   {"action_type": "run_dose_escalation", "parameters": {}, "justification": "Phase I safety", "confidence": 0.8},
-  {"action_type": "estimate_effect_size", "parameters": {}, "justification": "Quantify treatment effect", "confidence": 0.7},
-  {"action_type": "observe_safety_signal", "parameters": {}, "justification": "Monitor AEs", "confidence": 0.8},
   {"action_type": "run_interim_analysis", "parameters": {}, "justification": "Check futility/efficacy", "confidence": 0.75},
   {"action_type": "run_primary_analysis", "parameters": {}, "justification": "Final statistical test", "confidence": 0.8},
   {"action_type": "synthesize_conclusion", "parameters": {}, "justification": "Complete trial report", "confidence": 0.85}
 ]}
 
-You MUST include ALL phases: design → enrollment → analysis → conclusion.
-Return ONLY the JSON object, no other text."""
+You MUST include ALL phases: design -> enrollment -> analysis -> conclusion.
+Aim for 8-12 actions. Return ONLY the JSON object, no other text."""
 
 # Maximum steps to execute per episode during reward evaluation
 MAX_EPISODE_STEPS = 20
