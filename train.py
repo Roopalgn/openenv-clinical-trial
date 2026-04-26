@@ -584,7 +584,7 @@ def _grpo_reward_fn(
             rollout_action_plan_reward(
                 env=env,
                 completion=completion_text,
-                seed=seed + i,
+                seed=seed,  # Fix: use same seed for all completions in GRPO group
                 max_steps=max_steps,
                 curriculum_tier=curriculum_tier,
                 freeze_curriculum=freeze_curriculum,
