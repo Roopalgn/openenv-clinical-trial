@@ -39,8 +39,21 @@ log = logging.getLogger("train")
 PLAN_PARSE_FAILURE_REWARD = -3.0
 INVALID_SEQUENCE_REWARD = -3.0
 INCOMPLETE_PLAN_PENALTY = -3.0
+MAX_INCOMPLETE_PROGRESS_BONUS = 2.4
 DEFAULT_TRAIN_CURRICULUM_TIER = 3
 DEFAULT_FREEZE_CURRICULUM = True
+
+REQUIRED_ACTION_ORDER: tuple[str, ...] = (
+    "set_primary_endpoint",
+    "set_sample_size",
+    "set_inclusion_criteria",
+    "set_dosing_schedule",
+    "set_control_arm",
+    "enroll_patients",
+    "run_dose_escalation",
+    "run_interim_analysis",
+    "run_primary_analysis",
+)
 
 # ---------------------------------------------------------------------------
 # Lazy imports — TRL / vLLM are optional at import time so the module can be
@@ -240,6 +253,20 @@ def parse_action_plan(text: str, max_actions: int = 12) -> list["TrialAction"] |
     return actions
 
 
+def plan_progress_bonus(actions: list["TrialAction"]) -> float:
+    """Reward longer valid prefixes without letting incomplete plans look solved."""
+    matched = 0
+    for action in actions:
+        if matched >= len(REQUIRED_ACTION_ORDER):
+            break
+        if action.action_type.value == REQUIRED_ACTION_ORDER[matched]:
+            matched += 1
+    if matched <= 1:
+        return 0.0
+    progress = matched / len(REQUIRED_ACTION_ORDER)
+    return MAX_INCOMPLETE_PROGRESS_BONUS * progress
+
+
 def _observation_to_plan_prompt(obs: Any) -> str:
     """Build the full-episode planning prompt used by GRPO."""
     return (
@@ -250,8 +277,10 @@ def _observation_to_plan_prompt(obs: Any) -> str:
         f"Resources: {json.dumps(obs.resource_status)}\n"
         f"Currently available actions: {obs.available_actions}\n\n"
         "The environment will execute exactly the actions you list. Invalid, unparsable, or incomplete plans receive low reward.\n"
-        "Respond with ONLY JSON in this shape:\n"
-        '{"actions":[{"action_type":"set_primary_endpoint","parameters":{"endpoint":"overall_survival"}},{"action_type":"set_sample_size","parameters":{"sample_size":240}}]}'
+        f"Minimum action_type order for completion: {list(REQUIRED_ACTION_ORDER)}.\n"
+        "For higher reward, include one useful information action when legal, such as add_biomarker_stratification or estimate_effect_size.\n"
+        "Set sample_size and enroll_patients to the same integer between 120 and 420, use 9 to 11 actions, and end with run_primary_analysis.\n"
+        "Respond with ONLY valid JSON: {\"actions\": [action objects]}. Each action object needs action_type and parameters."
     )
 
 
@@ -290,7 +319,7 @@ def rollout_action_plan_reward(
                 return total
 
         if not done:
-            return total + INCOMPLETE_PLAN_PENALTY
+            return total + plan_progress_bonus(actions) + INCOMPLETE_PLAN_PENALTY
         return total
     except Exception as exc:
         log.debug("Action-plan rollout failed: %s", exc)
