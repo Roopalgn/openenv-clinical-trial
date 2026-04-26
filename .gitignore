@@ -12,3 +12,14 @@ checkpoints/
 results/
 *.png
 .env
+
+# Internal / not for judges
+docs/internal/
+docs/onsite_roadmap.md
+docs/mini_blog_draft.md
+docs/grounding.md
+.claude/
+outputs/
+
+# Allow the reward plot image (needed by README)
+!docs/reward_plot.png
