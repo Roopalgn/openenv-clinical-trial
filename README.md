@@ -162,11 +162,13 @@ Rolling avg: 7.26 → 7.37 → 8.11
 ```
 
 ### Run 2 — Notebook Run (train_colab.ipynb, lora_dropout=0)
-Cleaner run with full Unsloth patching enabled (dropout=0):
+Cleaner run with full Unsloth patching. First 10 steps (live, still training):
 ```
-Step 1: +8.45  Step 2: +11.36  Step 3: +10.16  Step 4: +8.26
-Rolling avg steps 1-4: +9.56  (higher and more stable than Run 1)
-Completion length: ~460 tokens (more efficient plans than Run 1's ~560)
+Step 1: +8.45  Step 2: +11.36  Step 3: +10.16  Step 4: +8.26  Step 5: +12.49
+Step 6: +11.19  Step 7: +11.31  Step 8: +10.69  Step 9: +12.49  Step 10: +9.78
+Rolling avg steps 1-10: +10.62  ← 40% higher than Run 1's +7.26
+Completion length: ~440 tokens (more efficient than Run 1's ~560)
+clipped_ratio=0 every step, frac_reward_zero_std=0 every step
 ```
 
 Each run taught us something. Run 0 identified the evaluation bug. Run 1 proved the fix. Run 2 showed dropout=0 produces more efficient, stable outputs.
