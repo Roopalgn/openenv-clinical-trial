@@ -1,3 +1,12 @@
+---
+title: Openenv Clinical Trial
+emoji: 🧬
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+---
+
 # 🧬 Can a 1.5B model learn to design clinical trials from scratch?
 
 We gave it a budget, a novel compound with unknown efficacy, and zero knowledge of ICH guidelines.
